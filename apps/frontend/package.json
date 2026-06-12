@@ -1,0 +1,6 @@
+{
+  "name": "@yukon-connect/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Future Next.js frontend for Yukon Connect."
+}
