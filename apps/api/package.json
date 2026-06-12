@@ -10,7 +10,8 @@
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "inspect:schema": "node --experimental-strip-types src/scripts/inspect-schema.ts",
     "rebuild:contract-search-index": "node --experimental-strip-types src/scripts/rebuild-contract-search-index.ts",
-    "db:inspect": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/inspect-database-schema.ts"
+    "db:inspect": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/inspect-database-schema.ts",
+    "generate-embeddings": "node --experimental-strip-types src/scripts/generate-embeddings.ts"
   },
   "dependencies": {
     "pg": "^8.16.3"

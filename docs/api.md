@@ -125,6 +125,14 @@ Rebuild the index from `vw_contracts_full` whenever contract source data changes
 DATABASE_URL="postgresql://yukon:change-me@localhost:5432/yukon_connect" pnpm --filter @yukon-connect/api rebuild:contract-search-index
 ```
 
+If pgvector is available, `infra/sql/contract_search_index.sql` also adds a nullable `embedding vector(384)` column for semantic-search preparation. Populate local deterministic mock embeddings without external services with:
+
+```bash
+DATABASE_URL="postgresql://yukon:change-me@localhost:5432/yukon_connect" pnpm --filter @yukon-connect/api generate-embeddings
+```
+
+See [docs/search.md](search.md) for the semantic-search provider interface, mock embedding flow, and where a real embedding provider should be connected later.
+
 The index stores `search_text`, a weighted `search_vector`, and `last_indexed_at`. It combines contract description, vendor, department, community, contract/tender metadata, fiscal year, amount, project manager, work community, postal code, Yukon/YFN business flags, and SOA number. The fallback path is intended for resilience only; validate performance with the index on any 500k+ record environment.
 
 ## Schema inspection helper
