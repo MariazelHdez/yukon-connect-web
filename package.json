@@ -9,6 +9,7 @@
     "build": "pnpm --recursive --if-present build",
     "lint": "pnpm --recursive --if-present lint",
     "test": "pnpm --recursive --if-present test",
-    "format": "pnpm --recursive --if-present format"
+    "format": "pnpm --recursive --if-present format",
+    "db:inspect": "pnpm --filter @yukon-connect/api db:inspect"
   }
 }
