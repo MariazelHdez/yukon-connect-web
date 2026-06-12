@@ -125,3 +125,57 @@ docker compose down -v
 ## Current status
 
 This repository currently contains the base monorepo structure and Docker Compose configuration for local infrastructure. Business logic, the Next.js frontend, the Node.js API, Strapi implementation, and database search implementation will be added in later iterations.
+
+## Database schema inspection
+
+This repository includes a read-only PostgreSQL/Supabase schema inspection script for documenting the current database structure without creating migrations or changing data.
+
+### Configure `DATABASE_URL`
+
+Set `DATABASE_URL` to the PostgreSQL connection string for the database you want to inspect. Use a local copy, staging database, or the real database only when you intentionally choose to run the inspection there.
+
+```bash
+export DATABASE_URL="postgresql://<user>:<password>@<host>:5432/<database>"
+```
+
+For Supabase or other hosted PostgreSQL providers that require SSL, enable SSL for the connection:
+
+```bash
+export PGSSLMODE=require
+# or
+export DATABASE_SSL=true
+```
+
+Do not commit real database credentials. Keep them in your shell environment, a local untracked `.env`, or your secrets manager.
+
+### Run the inspection
+
+Install dependencies, then run the root workspace command:
+
+```bash
+pnpm install
+pnpm db:inspect
+```
+
+The command runs `apps/api/scripts/inspect-database-schema.ts`, connects with `DATABASE_URL`, reads metadata from `information_schema` and `pg_catalog`, and writes the generated report to:
+
+```text
+docs/database-current.md
+```
+
+The generated document includes detected schemas, tables, columns, types, nullability, primary keys, foreign keys, indexes, views, view definitions, expected Yukon Connect objects that were not found, and the generation timestamp.
+
+### If there is no database connection
+
+This project does not require Codex or CI to have access to the real database. If `DATABASE_URL` is missing, the script prints a clear message and does not generate `docs/database-current.md`.
+
+If your connection fails locally:
+
+1. Confirm the host, port, database, username, and password in `DATABASE_URL`.
+2. Confirm your IP address or network is allowed by the PostgreSQL/Supabase project.
+3. Enable SSL with `PGSSLMODE=require` or `DATABASE_SSL=true` if your provider requires it.
+4. Re-run `pnpm db:inspect` against a local copy, staging, or production database when you are ready.
+
+### Safety warning
+
+`pnpm db:inspect` is intentionally read-only. It only executes metadata `SELECT` queries inside a read-only transaction. It must not run `DROP TABLE`, `TRUNCATE`, `ALTER TABLE`, `CREATE TABLE`, `CREATE INDEX`, `INSERT`, `UPDATE`, or `DELETE`, and it does not create migrations.
