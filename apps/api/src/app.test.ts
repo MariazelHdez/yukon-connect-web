@@ -102,6 +102,7 @@ test('GET /contracts passes q through and returns ranked search results', async 
             amount: 5000,
             project_manager: 'Jane Manager',
             score: 0.75,
+            match_reason: ['full_text', 'synonym_match'],
             created_at: '2026-01-03T00:00:00.000Z',
             updated_at: '2026-01-04T00:00:00.000Z',
           },
@@ -127,8 +128,9 @@ test('GET /contracts passes q through and returns ranked search results', async 
 
   const app = createApp({ db: null, repository });
   const response = await app.inject('/contracts?q=construction');
-  const body = response.json() as { data: Array<{ score?: number }> };
+  const body = response.json() as { data: Array<{ score?: number; match_reason?: string[] }> };
 
   assert.equal(response.statusCode, 200);
   assert.equal(body.data[0]?.score, 0.75);
+  assert.deepEqual(body.data[0]?.match_reason, ['full_text', 'synonym_match']);
 });

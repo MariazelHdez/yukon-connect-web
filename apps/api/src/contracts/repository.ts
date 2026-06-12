@@ -24,6 +24,7 @@ export interface ContractRow {
   detail_tender_class?: string | null;
   soa_number?: string | null;
   score?: number | null;
+  match_reason?: string[] | null;
   created_at: string | Date | null;
   updated_at: string | Date | null;
 }
@@ -95,6 +96,70 @@ const DIRECT_SEARCH_PREDICATE = `(
         or v.type_name ilike '%' || sq.raw_query || '%'
       )`;
 
+const FULL_TEXT_MATCH_PREDICATE = `(
+        v.contract_description ilike '%' || sq.raw_query || '%'
+        or v.department ilike '%' || sq.raw_query || '%'
+        or v.community ilike '%' || sq.raw_query || '%'
+        or v.fiscal_year ilike '%' || sq.raw_query || '%'
+        or v.amount::text ilike '%' || sq.raw_query || '%'
+        or v.contract_type ilike '%' || sq.raw_query || '%'
+        or v.tender_class ilike '%' || sq.raw_query || '%'
+        or v.type_code ilike '%' || sq.raw_query || '%'
+        or v.type_name ilike '%' || sq.raw_query || '%'
+      )`;
+
+const EXPANDED_DIRECT_SEARCH_PREDICATE = `exists (
+        select 1
+        from unnest(sq.search_terms) as term(value)
+        where
+          v.contract_no ilike '%' || term.value || '%'
+          or v.contract_description ilike '%' || term.value || '%'
+          or v.vendor ilike '%' || term.value || '%'
+          or v.department ilike '%' || term.value || '%'
+          or v.community ilike '%' || term.value || '%'
+          or v.fiscal_year ilike '%' || term.value || '%'
+          or v.project_manager ilike '%' || term.value || '%'
+          or v.amount::text ilike '%' || term.value || '%'
+          or v.contract_type ilike '%' || term.value || '%'
+          or v.tender_class ilike '%' || term.value || '%'
+          or v.type_code ilike '%' || term.value || '%'
+          or v.type_name ilike '%' || term.value || '%'
+      )`;
+
+const SYNONYM_DIRECT_SEARCH_PREDICATE = `exists (
+        select 1
+        from unnest(sq.synonym_terms) as term(value)
+        where
+          v.contract_no ilike '%' || term.value || '%'
+          or v.contract_description ilike '%' || term.value || '%'
+          or v.vendor ilike '%' || term.value || '%'
+          or v.department ilike '%' || term.value || '%'
+          or v.community ilike '%' || term.value || '%'
+          or v.fiscal_year ilike '%' || term.value || '%'
+          or v.project_manager ilike '%' || term.value || '%'
+          or v.amount::text ilike '%' || term.value || '%'
+          or v.contract_type ilike '%' || term.value || '%'
+          or v.tender_class ilike '%' || term.value || '%'
+          or v.type_code ilike '%' || term.value || '%'
+          or v.type_name ilike '%' || term.value || '%'
+      )`;
+
+const FALLBACK_MATCH_REASON_SQL = `array_remove(array[
+        case when lower(v.contract_no) = lower(sq.raw_query) then 'exact_contract_no' end,
+        case when v.vendor ilike '%' || sq.raw_query || '%' then 'vendor_match' end,
+        case when v.project_manager ilike '%' || sq.raw_query || '%' then 'project_manager_match' end,
+        case when v.contract_description ilike '%' || sq.raw_query || '%' then 'full_text' end
+      ], null)`;
+
+const MATCH_REASON_SQL = `array_remove(array[
+        case when lower(v.contract_no) = lower(sq.raw_query) then 'exact_contract_no' end,
+        case when v.vendor ilike '%' || sq.raw_query || '%' then 'vendor_match' end,
+        case when v.project_manager ilike '%' || sq.raw_query || '%' then 'project_manager_match' end,
+        case when ${FULL_TEXT_MATCH_PREDICATE} or (numnode(sq.expanded_query) > 0 and csi.search_vector @@ sq.expanded_query) then 'full_text' end,
+        case when coalesce(ctm.direct_tag_match, false) then 'tag_match' end,
+        case when coalesce(ctm.synonym_tag_match, false) or ${SYNONYM_DIRECT_SEARCH_PREDICATE} then 'synonym_match' end
+      ], null)`;
+
 export class ContractsRepository {
   private readonly db: DatabaseClient;
 
@@ -117,6 +182,7 @@ export class ContractsRepository {
       select
 ${CONTRACT_LIST_SELECT},
         null::double precision as score,
+        null::text[] as match_reason,
         v.created_at,
         v.updated_at
       from vw_contracts_full v
@@ -154,20 +220,58 @@ ${CONTRACT_LIST_SELECT},
     const searchCte = `
       with search_query as (
         select
-          websearch_to_tsquery('english', $${searchTermPosition}) as query,
-          $${searchTermPosition}::text as raw_query
+          websearch_to_tsquery('english', expanded.search_text) as expanded_query,
+          websearch_to_tsquery('english', raw.raw_query) as query,
+          raw.raw_query,
+          expanded.search_terms,
+          expanded.synonym_terms
+        from (select $${searchTermPosition}::text as raw_query) raw
+        cross join lateral (
+          select
+            array_remove(array_agg(distinct term), null) as search_terms,
+            array_remove(array_agg(distinct term) filter (where term <> raw.raw_query), null) as synonym_terms,
+            array_to_string(array_remove(array_agg(distinct term), null), ' ') as search_text
+          from (
+            select raw.raw_query as term
+            union
+            select ss.synonym as term
+            from search_synonyms ss
+            where lower(ss.term) = lower(raw.raw_query)
+          ) expanded_terms
+        ) expanded
+      ), matching_contract_tags as (
+        select
+          ct.contract_record_id,
+          bool_or(lower(t.name) = lower(sq.raw_query) or lower(t.slug) = lower(replace(sq.raw_query, ' ', '-'))) as direct_tag_match,
+          bool_or(exists (
+            select 1
+            from unnest(sq.synonym_terms) as synonym(value)
+            where lower(t.name) = lower(synonym.value)
+              or lower(t.slug) = lower(replace(synonym.value, ' ', '-'))
+          )) as synonym_tag_match
+        from contract_tags ct
+        join tags t on t.id = ct.tag_id
+        cross join search_query sq
+        where lower(t.name) = any (select lower(value) from unnest(sq.search_terms) as term(value))
+          or lower(t.slug) = any (select lower(replace(value, ' ', '-')) from unnest(sq.search_terms) as term(value))
+        group by ct.contract_record_id
       )`;
     const searchPredicate = `(
         lower(v.contract_no) = lower(sq.raw_query)
         or ${DIRECT_SEARCH_PREDICATE}
-        or (numnode(sq.query) > 0 and csi.search_vector @@ sq.query)
+        or ${EXPANDED_DIRECT_SEARCH_PREDICATE}
+        or (numnode(sq.expanded_query) > 0 and csi.search_vector @@ sq.expanded_query)
+        or coalesce(ctm.direct_tag_match, false)
+        or coalesce(ctm.synonym_tag_match, false)
       )`;
     const searchScore = `(
         case when lower(v.contract_no) = lower(sq.raw_query) then 1000 else 0 end
         + case when v.contract_no ilike '%' || sq.raw_query || '%' then 500 else 0 end
         + case when v.vendor ilike '%' || sq.raw_query || '%' then 125 else 0 end
         + case when v.project_manager ilike '%' || sq.raw_query || '%' then 125 else 0 end
-        + case when numnode(sq.query) > 0 then coalesce(ts_rank_cd(csi.search_vector, sq.query), 0) else 0 end
+        + case when coalesce(ctm.direct_tag_match, false) then 100 else 0 end
+        + case when coalesce(ctm.synonym_tag_match, false) then 90 else 0 end
+        + case when numnode(sq.expanded_query) > 0 then coalesce(ts_rank_cd(csi.search_vector, sq.expanded_query), 0) else 0 end
       )`;
     const combinedWhereSql = appendWhereCondition(whereSql, searchPredicate);
 
@@ -176,11 +280,13 @@ ${CONTRACT_LIST_SELECT},
       select
 ${CONTRACT_LIST_SELECT},
         ${searchScore} as score,
+        ${MATCH_REASON_SQL} as match_reason,
         v.created_at,
         v.updated_at
       from vw_contracts_full v
       left join contract_records cr on cr.id = v.id
       left join contract_search_index csi on csi.contract_record_id = v.id
+      left join matching_contract_tags ctm on ctm.contract_record_id = v.id
       cross join search_query sq
       ${combinedWhereSql}
       order by score desc, v.created_at desc nulls last, v.id desc
@@ -193,6 +299,7 @@ ${CONTRACT_LIST_SELECT},
       from vw_contracts_full v
       left join contract_records cr on cr.id = v.id
       left join contract_search_index csi on csi.contract_record_id = v.id
+      left join matching_contract_tags ctm on ctm.contract_record_id = v.id
       cross join search_query sq
       ${combinedWhereSql}
     `;
@@ -251,6 +358,7 @@ ${CONTRACT_LIST_SELECT},
       select
 ${CONTRACT_LIST_SELECT},
         ${searchScore} as score,
+        ${FALLBACK_MATCH_REASON_SQL} as match_reason,
         v.created_at,
         v.updated_at
       from vw_contracts_full v
@@ -311,6 +419,7 @@ ${CONTRACT_LIST_SELECT},
           v.detail_tender_class,
           v.soa_number,
           null::double precision as score,
+          null::text[] as match_reason,
           v.created_at,
           v.updated_at
         from vw_contracts_full v

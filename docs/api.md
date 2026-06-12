@@ -43,7 +43,7 @@ Supported query parameters:
 | --- | --- | --- |
 | `page` | positive integer | Defaults to `1`. |
 | `pageSize` | positive integer | Defaults to `25`; maximum `100`. |
-| `q` | string | Uses PostgreSQL full-text search through `contract_search_index`. Exact `contract_no` matches rank first, followed by vendor/project manager matches, then description and metadata full-text matches. Results include a numeric `score`. |
+| `q` | string | Uses PostgreSQL full-text search through `contract_search_index`, expands matching `search_synonyms.term` values with their synonyms, and includes contracts linked through matching `tags`/`contract_tags`. Exact `contract_no` matches rank first, followed by vendor/project manager matches, tag/synonym matches, then description and metadata full-text matches. Results include numeric `score` and `match_reason`. |
 | `vendor` | string | Exact match against `vendor`. |
 | `department` | string | Exact match against `department`. |
 | `community` | string | Exact match against `community`. |
@@ -64,7 +64,8 @@ Response shape:
     {
       "id": 123,
       "contract_no": "C-123",
-      "score": 0.42
+      "score": 0.42,
+      "match_reason": ["full_text", "tag_match"]
     }
   ],
   "pagination": {
@@ -76,6 +77,18 @@ Response shape:
 ```
 
 Invalid query parameters return `400` with a `details` array.
+
+
+`match_reason` explains why each search result matched the submitted `q` value. It can include:
+
+- `exact_contract_no`: `q` exactly matches the contract number.
+- `vendor_match`: `q` matches the vendor name.
+- `project_manager_match`: `q` matches the project manager.
+- `full_text`: `q` or an expanded synonym matches the full-text index or searchable contract metadata.
+- `tag_match`: `q` matches a tag assigned to the contract.
+- `synonym_match`: `q` matched a synonym term and one of the expanded synonyms matched searchable fields or assigned tags.
+
+For example, `q=construction` expands through seeded synonyms to include `infrastructure`, `bridge`, `road`, and `materials`, so contracts tagged with `bridge`, `materials`, or `infrastructure` are eligible results. `q=apples` expands to `food` and `produce`, so food/produce-related contracts can match through synonyms or tags.
 
 ### `GET /contracts/:id`
 
@@ -99,10 +112,11 @@ Returns distinct values available for list filters from `vw_contracts_full`.
 
 ## Full-text search index
 
-The `q` parameter prefers a PostgreSQL table named `contract_search_index`. If that table is missing, the API falls back to a direct parameterized `ILIKE` search over `vw_contracts_full` so contract search degrades functionally instead of failing. Apply the SQL setup in `infra/sql/contract_search_index.sql` after `vw_contracts_full` exists to enable indexed full-text ranking:
+The `q` parameter prefers a PostgreSQL table named `contract_search_index` plus the `tags`, `contract_tags`, and `search_synonyms` enrichment tables. If an enrichment/index table is missing, the API falls back to a direct parameterized `ILIKE` search over `vw_contracts_full` so contract search degrades functionally instead of failing. Apply the SQL setup in `infra/sql/contract_search_index.sql` and `infra/sql/tags_and_search_synonyms.sql` after `vw_contracts_full` and `contract_records` exist to enable indexed full-text ranking, tag matching, and synonym expansion:
 
 ```bash
 psql "$DATABASE_URL" -f infra/sql/contract_search_index.sql
+psql "$DATABASE_URL" -f infra/sql/tags_and_search_synonyms.sql
 ```
 
 Rebuild the index from `vw_contracts_full` whenever contract source data changes:
