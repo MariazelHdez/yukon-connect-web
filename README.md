@@ -67,6 +67,61 @@ Run formatters for workspace packages/apps that define a format script:
 pnpm format
 ```
 
+
+## Docker Compose for local development
+
+The repository includes a Docker Compose setup for local development services. PostgreSQL starts by default; pgAdmin and the application placeholders are opt-in profiles.
+
+Create your local environment file from the example before starting services:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and replace placeholder passwords with local-only values. Do not commit real secrets.
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d
+```
+
+Check service status:
+
+```bash
+docker compose ps
+```
+
+Connect to PostgreSQL from your host machine with the values in `.env`:
+
+```bash
+psql "postgresql://yukon:<your-local-password>@localhost:5432/yukon_connect"
+```
+
+Start optional pgAdmin at <http://localhost:5050>:
+
+```bash
+docker compose --profile tools up -d pgadmin
+```
+
+Start the prepared API, frontend, and Strapi placeholder services after those apps are scaffolded or when you want to validate the compose topology:
+
+```bash
+docker compose --profile apps up -d
+```
+
+Stop and remove local containers while keeping the database volume:
+
+```bash
+docker compose down
+```
+
+Stop containers and remove persisted PostgreSQL/pgAdmin data volumes:
+
+```bash
+docker compose down -v
+```
+
 ## Current status
 
-This repository currently contains the base monorepo structure only. Business logic, the Next.js frontend, the Node.js API, Strapi, Docker Compose services, and database search implementation will be added in later iterations.
+This repository currently contains the base monorepo structure and Docker Compose configuration for local infrastructure. Business logic, the Next.js frontend, the Node.js API, Strapi implementation, and database search implementation will be added in later iterations.
