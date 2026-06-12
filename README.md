@@ -125,3 +125,17 @@ docker compose down -v
 ## Current status
 
 This repository currently contains the base monorepo structure and Docker Compose configuration for local infrastructure. Business logic, the Next.js frontend, the Node.js API, Strapi implementation, and database search implementation will be added in later iterations.
+
+## API contract search service
+
+The repository now includes a TypeScript Node.js API in `apps/api` for read-only contract search against the existing PostgreSQL schema.
+
+Useful commands:
+
+```bash
+pnpm --filter @yukon-connect/api start
+pnpm --filter @yukon-connect/api test
+pnpm --filter @yukon-connect/api inspect:schema
+```
+
+See [docs/api.md](docs/api.md) for endpoint documentation, accepted filters, response shapes, and local schema inspection instructions.
