@@ -124,7 +124,7 @@ docker compose down -v
 
 ## Current status
 
-This repository currently contains the base monorepo structure and Docker Compose configuration for local infrastructure. Business logic, the Next.js frontend, the Node.js API, Strapi implementation, and database search implementation will be added in later iterations.
+This repository currently contains the base monorepo structure, Docker Compose configuration for local infrastructure, and an initial read-only Node.js TypeScript API for contract search. The Next.js frontend and Strapi CMS/admin app are still placeholders for later iterations, and Strapi must not be used as the primary contract search store.
 
 ## Database schema inspection
 
