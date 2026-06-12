@@ -9,7 +9,7 @@
     "start": "node --experimental-strip-types src/server.ts",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "inspect:schema": "node --experimental-strip-types src/scripts/inspect-schema.ts",
-    "rebuild:contract-search-index": "node --experimental-strip-types src/scripts/rebuild-contract-search-index.ts"
+    "rebuild:contract-search-index": "node --experimental-strip-types src/scripts/rebuild-contract-search-index.ts",
     "db:inspect": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/inspect-database-schema.ts"
   },
   "dependencies": {

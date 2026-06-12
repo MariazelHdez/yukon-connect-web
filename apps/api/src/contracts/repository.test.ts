@@ -38,3 +38,41 @@ test('listContracts uses contract_search_index full-text search and rank when q 
   assert.deepEqual(dataQuery.values, ['Acme Ltd', 'construction', 25, 0]);
   assert.deepEqual(countQuery.values, ['Acme Ltd', 'construction']);
 });
+
+class MissingSearchIndexDb implements DatabaseClient {
+  readonly calls: Array<{ sql: string; values: QueryValue[] }> = [];
+
+  async query<Row>(sql: string, values: QueryValue[] = []): Promise<QueryResult<Row>> {
+    this.calls.push({ sql, values });
+    if (/contract_search_index/.test(sql)) {
+      const error = new Error('relation "contract_search_index" does not exist') as Error & { code: string };
+      error.code = '42P01';
+      throw error;
+    }
+
+    if (/count\(\*\)::int as total/.test(sql)) {
+      return { rows: [{ total: 0 } as Row], rowCount: 1 };
+    }
+
+    return { rows: [], rowCount: 0 };
+  }
+
+  async close(): Promise<void> {}
+}
+
+test('listContracts falls back to direct vw_contracts_full search when contract_search_index is missing', async () => {
+  const db = new MissingSearchIndexDb();
+  const repository = new ContractsRepository(db);
+
+  await repository.listContracts({ page: 1, pageSize: 25, q: 'bridge' });
+
+  assert.equal(db.calls.length, 4);
+  const [indexedDataQuery, indexedCountQuery, fallbackDataQuery, fallbackCountQuery] = db.calls;
+  assert.match(indexedDataQuery.sql, /contract_search_index/);
+  assert.match(indexedCountQuery.sql, /contract_search_index/);
+  assert.doesNotMatch(fallbackDataQuery.sql, /contract_search_index/);
+  assert.doesNotMatch(fallbackCountQuery.sql, /contract_search_index/);
+  assert.match(fallbackDataQuery.sql, /v\.contract_description ilike '%' \|\| sq\.raw_query \|\| '%'/);
+  assert.deepEqual(fallbackDataQuery.values, ['bridge', 25, 0]);
+  assert.deepEqual(fallbackCountQuery.values, ['bridge']);
+});
