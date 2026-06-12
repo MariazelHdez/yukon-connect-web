@@ -80,3 +80,55 @@ test('GET /contracts rejects invalid pagination', async () => {
   assert.equal(body.error, 'Invalid request parameters.');
   assert.deepEqual(body.details, ['page must be a positive integer.']);
 });
+
+test('GET /contracts passes q through and returns ranked search results', async () => {
+  const repository = {
+    async listContracts(query: { page: number; pageSize: number; q?: string }) {
+      assert.deepEqual(query, { page: 1, pageSize: 25, q: 'construction' });
+      return {
+        data: [
+          {
+            id: 456,
+            contract_no: 'C-456',
+            contract_description: 'Bridge construction materials',
+            vendor: 'Road Builders Ltd',
+            department: 'Highways',
+            community: 'Whitehorse',
+            contract_type: 'Construction',
+            tender_class: 'Open',
+            fiscal_year: '2025-26',
+            type_code: 'C',
+            type_name: 'Construction',
+            amount: 5000,
+            project_manager: 'Jane Manager',
+            score: 0.75,
+            created_at: '2026-01-03T00:00:00.000Z',
+            updated_at: '2026-01-04T00:00:00.000Z',
+          },
+        ],
+        pagination: { page: 1, pageSize: 25, total: 1 },
+      };
+    },
+    async getContract() {
+      return null;
+    },
+    async getFilters() {
+      return {
+        vendors: [],
+        departments: [],
+        communities: [],
+        fiscalYears: [],
+        contractTypes: [],
+        tenderClasses: [],
+        projectManagers: [],
+      };
+    },
+  };
+
+  const app = createApp({ db: null, repository });
+  const response = await app.inject('/contracts?q=construction');
+  const body = response.json() as { data: Array<{ score?: number }> };
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.data[0]?.score, 0.75);
+});

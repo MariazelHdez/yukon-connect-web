@@ -43,7 +43,7 @@ Supported query parameters:
 | --- | --- | --- |
 | `page` | positive integer | Defaults to `1`. |
 | `pageSize` | positive integer | Defaults to `25`; maximum `100`. |
-| `q` | string | Case-insensitive search across contract number, description, vendor, department, community, and project manager. |
+| `q` | string | Uses PostgreSQL full-text search through `contract_search_index`. Exact `contract_no` matches rank first, followed by vendor/project manager matches, then description and metadata full-text matches. Results include a numeric `score`. |
 | `vendor` | string | Exact match against `vendor`. |
 | `department` | string | Exact match against `department`. |
 | `community` | string | Exact match against `community`. |
@@ -60,7 +60,13 @@ Response shape:
 
 ```json
 {
-  "data": [],
+  "data": [
+    {
+      "id": 123,
+      "contract_no": "C-123",
+      "score": 0.42
+    }
+  ],
   "pagination": {
     "page": 1,
     "pageSize": 25,
@@ -90,6 +96,22 @@ Returns distinct values available for list filters from `vw_contracts_full`.
   "projectManagers": []
 }
 ```
+
+## Full-text search index
+
+The `q` parameter expects a PostgreSQL table named `contract_search_index`. Apply the SQL setup in `infra/sql/contract_search_index.sql` after `vw_contracts_full` exists:
+
+```bash
+psql "$DATABASE_URL" -f infra/sql/contract_search_index.sql
+```
+
+Rebuild the index from `vw_contracts_full` whenever contract source data changes:
+
+```bash
+DATABASE_URL="postgresql://yukon:change-me@localhost:5432/yukon_connect" pnpm --filter @yukon-connect/api rebuild:contract-search-index
+```
+
+The index stores `search_text`, a weighted `search_vector`, and `last_indexed_at`. It combines contract description, vendor, department, community, contract/tender metadata, fiscal year, amount, project manager, work community, postal code, Yukon/YFN business flags, and SOA number.
 
 ## Schema inspection helper
 
