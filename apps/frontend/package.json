@@ -2,5 +2,25 @@
   "name": "@yukon-connect/frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "Future Next.js frontend for Yukon Connect."
+  "type": "module",
+  "description": "Next.js frontend for Yukon Connect contract search.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^15.5.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "eslint": "^9.38.0",
+    "eslint-config-next": "^15.5.6",
+    "typescript": "^5.9.3"
+  }
 }

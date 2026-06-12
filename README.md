@@ -6,7 +6,7 @@ Yukon Connect is a TypeScript monorepo for a web application that will help user
 
 ```text
 apps/
-  frontend/   # Future Next.js frontend
+  frontend/   # Next.js contract search frontend
   api/        # Future Node.js TypeScript API
   strapi/     # Future Strapi CMS/admin app
 packages/
@@ -53,6 +53,14 @@ Run lint checks for workspace packages/apps that define a lint script:
 
 ```bash
 pnpm lint
+```
+
+### Frontend configuration
+
+The Next.js frontend proxies `/contracts` and `/contracts/filters` to the API service. Set `API_BASE_URL` (server-side rewrite target) or `NEXT_PUBLIC_API_BASE_URL` when the API is not running at `http://localhost:3001`.
+
+```bash
+API_BASE_URL=http://localhost:3001 pnpm --filter @yukon-connect/frontend dev
 ```
 
 Run tests for workspace packages/apps that define a test script:
@@ -124,7 +132,7 @@ docker compose down -v
 
 ## Current status
 
-This repository currently contains the base monorepo structure, Docker Compose configuration for local infrastructure, and an initial read-only Node.js TypeScript API for contract search. The Next.js frontend and Strapi CMS/admin app are still placeholders for later iterations, and Strapi must not be used as the primary contract search store.
+This repository currently contains the base monorepo structure, Docker Compose configuration for local infrastructure, an initial read-only Node.js TypeScript API for contract search, and a Next.js frontend for searching and filtering contracts. The Strapi CMS/admin app is still a placeholder for later iterations, and Strapi must not be used as the primary contract search store.
 
 ## Database schema inspection
 
