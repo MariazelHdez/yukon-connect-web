@@ -10,6 +10,7 @@
     "lint": "pnpm --recursive --if-present lint",
     "test": "pnpm --recursive --if-present test",
     "format": "pnpm --recursive --if-present format",
-    "db:inspect": "pnpm --filter @yukon-connect/api db:inspect"
+    "db:inspect": "pnpm --filter @yukon-connect/api db:inspect",
+    "generate-embeddings": "pnpm --filter @yukon-connect/api generate-embeddings"
   }
 }
