@@ -23,6 +23,7 @@ export interface ContractRow {
   tender_type?: string | null;
   detail_tender_class?: string | null;
   soa_number?: string | null;
+  score?: number | null;
   created_at: string | Date | null;
   updated_at: string | Date | null;
 }
@@ -56,22 +57,7 @@ const FILTER_COLUMNS = {
   tenderClass: 'v.tender_class',
 } as const;
 
-export class ContractsRepository {
-  private readonly db: DatabaseClient;
-
-  constructor(db: DatabaseClient) {
-    this.db = db;
-  }
-
-  async listContracts(query: ContractListQuery): Promise<ContractListResult> {
-    const { whereSql, values } = buildWhereClause(query);
-    const limitPosition = values.length + 1;
-    const offsetPosition = values.length + 2;
-    const limit = query.pageSize;
-    const offset = (query.page - 1) * query.pageSize;
-
-    const dataSql = `
-      select
+const CONTRACT_LIST_SELECT = `
         v.id,
         v.contract_no,
         v.contract_description,
@@ -85,6 +71,37 @@ export class ContractsRepository {
         v.type_name,
         v.amount,
         v.project_manager,
+        v.work_community,
+        v.postal_code,
+        v.yukon_business,
+        v.yfn_business,
+        v.detail_contract_type,
+        v.tender_type,
+        v.detail_tender_class,
+        v.soa_number`;
+
+export class ContractsRepository {
+  private readonly db: DatabaseClient;
+
+  constructor(db: DatabaseClient) {
+    this.db = db;
+  }
+
+  async listContracts(query: ContractListQuery): Promise<ContractListResult> {
+    return query.q ? this.searchContracts(query) : this.listContractsWithoutSearch(query);
+  }
+
+  private async listContractsWithoutSearch(query: ContractListQuery): Promise<ContractListResult> {
+    const { whereSql, values } = buildWhereClause(query);
+    const limitPosition = values.length + 1;
+    const offsetPosition = values.length + 2;
+    const limit = query.pageSize;
+    const offset = (query.page - 1) * query.pageSize;
+
+    const dataSql = `
+      select
+${CONTRACT_LIST_SELECT},
+        null::double precision as score,
         v.created_at,
         v.updated_at
       from vw_contracts_full v
@@ -99,6 +116,78 @@ export class ContractsRepository {
     const [dataResult, countResult] = await Promise.all([
       this.db.query<ContractRow>(dataSql, [...values, limit, offset]),
       this.db.query<{ total: number }>(countSql, values),
+    ]);
+
+    return {
+      data: dataResult.rows,
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total: countResult.rows[0]?.total ?? 0,
+      },
+    };
+  }
+
+  private async searchContracts(query: ContractListQuery): Promise<ContractListResult> {
+    const { whereSql, values } = buildWhereClause(query);
+    const searchTermPosition = values.length + 1;
+    const limitPosition = values.length + 2;
+    const offsetPosition = values.length + 3;
+    const limit = query.pageSize;
+    const offset = (query.page - 1) * query.pageSize;
+
+    const searchCte = `
+      with search_query as (
+        select
+          websearch_to_tsquery('english', $${searchTermPosition}) as query,
+          $${searchTermPosition}::text as raw_query
+      )`;
+    const searchPredicate = `(
+        lower(v.contract_no) = lower(sq.raw_query)
+        or v.contract_no ilike '%' || sq.raw_query || '%'
+        or v.vendor ilike '%' || sq.raw_query || '%'
+        or v.project_manager ilike '%' || sq.raw_query || '%'
+        or (numnode(sq.query) > 0 and csi.search_vector @@ sq.query)
+      )`;
+    const searchScore = `(
+        case when lower(v.contract_no) = lower(sq.raw_query) then 1000 else 0 end
+        + case when v.contract_no ilike '%' || sq.raw_query || '%' then 500 else 0 end
+        + case when v.vendor ilike '%' || sq.raw_query || '%' then 125 else 0 end
+        + case when v.project_manager ilike '%' || sq.raw_query || '%' then 125 else 0 end
+        + case when numnode(sq.query) > 0 then coalesce(ts_rank_cd(csi.search_vector, sq.query), 0) else 0 end
+      )`;
+    const combinedWhereSql = appendWhereCondition(whereSql, searchPredicate);
+
+    const dataSql = `
+      ${searchCte}
+      select
+${CONTRACT_LIST_SELECT},
+        ${searchScore} as score,
+        v.created_at,
+        v.updated_at
+      from vw_contracts_full v
+      left join contract_records cr on cr.id = v.id
+      left join contract_search_index csi on csi.contract_record_id = v.id
+      cross join search_query sq
+      ${combinedWhereSql}
+      order by score desc, v.created_at desc nulls last, v.id desc
+      limit $${limitPosition}
+      offset $${offsetPosition}
+    `;
+    const countSql = `
+      ${searchCte}
+      select count(*)::int as total
+      from vw_contracts_full v
+      left join contract_records cr on cr.id = v.id
+      left join contract_search_index csi on csi.contract_record_id = v.id
+      cross join search_query sq
+      ${combinedWhereSql}
+    `;
+    const queryValues = [...values, query.q];
+
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query<ContractRow>(dataSql, [...queryValues, limit, offset]),
+      this.db.query<{ total: number }>(countSql, queryValues),
     ]);
 
     return {
@@ -136,6 +225,7 @@ export class ContractsRepository {
           v.tender_type,
           v.detail_tender_class,
           v.soa_number,
+          null::double precision as score,
           v.created_at,
           v.updated_at
         from vw_contracts_full v
@@ -182,18 +272,6 @@ function buildWhereClause(query: ContractListQuery): { whereSql: string; values:
     return `$${values.length}`;
   };
 
-  if (query.q) {
-    const placeholder = addValue(`%${query.q}%`);
-    conditions.push(`(
-      v.contract_no ilike ${placeholder}
-      or v.contract_description ilike ${placeholder}
-      or v.vendor ilike ${placeholder}
-      or v.department ilike ${placeholder}
-      or v.community ilike ${placeholder}
-      or v.project_manager ilike ${placeholder}
-    )`);
-  }
-
   for (const [queryKey, column] of Object.entries(FILTER_COLUMNS)) {
     const value = query[queryKey as keyof typeof FILTER_COLUMNS];
     if (typeof value === 'string' && value !== '') {
@@ -221,4 +299,12 @@ function buildWhereClause(query: ContractListQuery): { whereSql: string; values:
     whereSql: conditions.length > 0 ? `where ${conditions.join(' and ')}` : '',
     values,
   };
+}
+
+function appendWhereCondition(whereSql: string, condition: string): string {
+  if (whereSql.trim() === '') {
+    return `where ${condition}`;
+  }
+
+  return `${whereSql} and ${condition}`;
 }
