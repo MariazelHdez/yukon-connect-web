@@ -179,3 +179,17 @@ If your connection fails locally:
 ### Safety warning
 
 `pnpm db:inspect` is intentionally read-only. It only executes metadata `SELECT` queries inside a read-only transaction. It must not run `DROP TABLE`, `TRUNCATE`, `ALTER TABLE`, `CREATE TABLE`, `CREATE INDEX`, `INSERT`, `UPDATE`, or `DELETE`, and it does not create migrations.
+
+## API contract search service
+
+The repository now includes a TypeScript Node.js API in `apps/api` for read-only contract search against the existing PostgreSQL schema.
+
+Useful commands:
+
+```bash
+pnpm --filter @yukon-connect/api start
+pnpm --filter @yukon-connect/api test
+pnpm --filter @yukon-connect/api inspect:schema
+```
+
+See [docs/api.md](docs/api.md) for endpoint documentation, accepted filters, response shapes, and local schema inspection instructions.
