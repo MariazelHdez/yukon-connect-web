@@ -1,0 +1,6 @@
+{
+  "name": "@yukon-connect/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Future Node.js TypeScript API for Yukon Connect."
+}

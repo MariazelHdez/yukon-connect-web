@@ -1,0 +1,6 @@
+{
+  "name": "@yukon-connect/strapi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Future Strapi CMS/admin app for Yukon Connect."
+}
