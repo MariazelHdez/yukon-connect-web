@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test --experimental-strip-types 'app/**/*.test.ts'"
   },
   "dependencies": {

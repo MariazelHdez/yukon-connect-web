@@ -1,0 +1,109 @@
+stages:
+  - install
+  - lint
+  - typecheck
+  - test
+  - build
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+variables:
+  PNPM_VERSION: "10.28.1"
+  PNPM_STORE_DIR: ".pnpm-store"
+  NEXT_TELEMETRY_DISABLED: "1"
+  STRAPI_TELEMETRY_DISABLED: "true"
+
+default:
+  image: node:24-bookworm
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
+    policy: pull-push
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@${PNPM_VERSION} --activate
+    - pnpm config set store-dir ${PNPM_STORE_DIR}
+    - pnpm install --frozen-lockfile
+
+install:
+  stage: install
+  script:
+    - pnpm install --frozen-lockfile
+
+lint:frontend:
+  stage: lint
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/frontend lint
+
+lint:api:
+  stage: lint
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/api lint
+
+lint:strapi:
+  stage: lint
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/strapi lint
+
+typecheck:frontend:
+  stage: typecheck
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/frontend typecheck
+
+typecheck:api:
+  stage: typecheck
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/api typecheck
+
+typecheck:strapi:
+  stage: typecheck
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/strapi typecheck
+
+test:frontend:
+  stage: test
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/frontend test
+
+test:api:
+  stage: test
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/api test
+
+test:strapi:
+  stage: test
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/strapi run --if-present test
+
+build:frontend:
+  stage: build
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/frontend build
+
+build:api:
+  stage: build
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/api build
+
+build:strapi:
+  stage: build
+  needs: ["install"]
+  script:
+    - pnpm --filter @yukon-connect/strapi build

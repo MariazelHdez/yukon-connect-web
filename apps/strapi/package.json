@@ -10,7 +10,8 @@
     "dev": "strapi develop",
     "start": "strapi start",
     "strapi": "strapi",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@strapi/plugin-users-permissions": "latest",

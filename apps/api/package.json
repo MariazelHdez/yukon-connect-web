@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "node --experimental-strip-types --watch src/server.ts",
     "start": "node --experimental-strip-types src/server.ts",
+    "build": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'",
     "inspect:schema": "node --experimental-strip-types src/scripts/inspect-schema.ts",
     "rebuild:contract-search-index": "node --experimental-strip-types src/scripts/rebuild-contract-search-index.ts",
@@ -15,5 +18,9 @@
   },
   "dependencies": {
     "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "typescript": "^5.9.3"
   }
 }

@@ -99,6 +99,62 @@ Run formatters for workspace packages/apps that define a format script:
 pnpm format
 ```
 
+## GitLab CI/CD
+
+This repository includes a GitLab CI pipeline in `.gitlab-ci.yml` for merge requests and branch pipelines. The pipeline uses Node.js 24, Corepack, pnpm 10.28.1, and a cached pnpm store to avoid downloading dependencies from scratch on every job.
+
+Pipeline stages:
+
+1. `install` validates dependency installation with `pnpm install --frozen-lockfile`.
+2. `lint` runs the configured lint script for the frontend, API, and Strapi app.
+3. `typecheck` runs TypeScript checks for the frontend, API, and Strapi app.
+4. `test` runs frontend and API tests, plus the Strapi test script if one is added later.
+5. `build` builds or validates the frontend, API, and Strapi app.
+
+There are no production deployment jobs yet. Lint, typecheck, test, and build jobs must pass before the pipeline is green.
+
+### CI/CD variables
+
+Configure runtime secrets and environment-specific values in **GitLab > Settings > CI/CD > Variables**. Do not hardcode real credentials in `.gitlab-ci.yml`, source files, or committed `.env` files.
+
+| Variable | Required for CI now? | Used by | Notes |
+| --- | --- | --- | --- |
+| `PNPM_VERSION` | No | CI install jobs | Defaults to `10.28.1` in `.gitlab-ci.yml`; override only when changing the workspace package manager version. |
+| `PNPM_STORE_DIR` | No | CI cache | Defaults to `.pnpm-store` in `.gitlab-ci.yml`. |
+| `NEXT_TELEMETRY_DISABLED` | No | Frontend CI | Defaults to `1` in `.gitlab-ci.yml`. |
+| `STRAPI_TELEMETRY_DISABLED` | No | Strapi CI | Defaults to `true` in `.gitlab-ci.yml`. |
+| `API_BASE_URL` | No for current CI, yes for deployed frontend environments | Frontend | Server-side API URL used by Next.js rewrites. Set per environment when preview/staging/production deployment jobs are added. |
+| `NEXT_PUBLIC_API_BASE_URL` | No for current CI, yes for deployed frontend environments | Frontend browser bundle | Public API URL exposed to the browser. Set per environment when deployment jobs are added. |
+| `DATABASE_URL` | No for current CI, yes for API runtime or database inspection | API, Strapi fallback | PostgreSQL connection string. Store as a masked/protected GitLab variable for real environments. |
+| `STRAPI_DATABASE_URL` | No for current CI, yes for Strapi runtime | Strapi | Strapi PostgreSQL connection string when different from `DATABASE_URL`. Store as a masked/protected GitLab variable. |
+| `DATABASE_SSL` | No | API/Strapi database connections | Set to `true` for hosted PostgreSQL providers that require SSL. |
+| `DATABASE_SSL_REJECT_UNAUTHORIZED` | No | Strapi database connections | Optional SSL verification toggle for hosted PostgreSQL. Prefer `true` unless your provider requires otherwise. |
+| `APP_KEYS` | No for current CI, yes for Strapi runtime | Strapi | Comma-separated Strapi application keys. Use generated secrets in GitLab variables. |
+| `ADMIN_JWT_SECRET` | No for current CI, yes for Strapi runtime | Strapi | Strapi admin JWT secret. Use a generated secret in GitLab variables. |
+| `API_TOKEN_SALT` | No for current CI, yes for Strapi runtime | Strapi | Strapi API token salt. Use a generated secret in GitLab variables. |
+| `TRANSFER_TOKEN_SALT` | No for current CI, yes for Strapi runtime | Strapi | Strapi transfer token salt. Use a generated secret in GitLab variables. |
+| `ENCRYPTION_KEY` | No for current CI, yes for Strapi runtime | Strapi | Strapi encryption key. Use a generated 32-character secret in GitLab variables. |
+
+### Running CI checks locally
+
+Run the same commands that GitLab uses before opening a merge request:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter @yukon-connect/frontend lint
+pnpm --filter @yukon-connect/api lint
+pnpm --filter @yukon-connect/strapi lint
+pnpm --filter @yukon-connect/frontend typecheck
+pnpm --filter @yukon-connect/api typecheck
+pnpm --filter @yukon-connect/strapi typecheck
+pnpm --filter @yukon-connect/frontend test
+pnpm --filter @yukon-connect/api test
+pnpm --filter @yukon-connect/strapi run --if-present test
+pnpm --filter @yukon-connect/frontend build
+pnpm --filter @yukon-connect/api build
+pnpm --filter @yukon-connect/strapi build
+```
+
 
 ## Docker Compose for local development
 
