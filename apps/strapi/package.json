@@ -2,5 +2,29 @@
   "name": "@yukon-connect/strapi",
   "version": "0.1.0",
   "private": true,
-  "description": "Future Strapi CMS/admin app for Yukon Connect."
+  "description": "Strapi CMS/admin app for Yukon Connect editorial content, tags, synonyms, and feedback.",
+  "scripts": {
+    "build": "strapi build",
+    "console": "strapi console",
+    "develop": "strapi develop",
+    "dev": "strapi develop",
+    "start": "strapi start",
+    "strapi": "strapi",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@strapi/plugin-users-permissions": "latest",
+    "@strapi/strapi": "latest",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0 <=24.x.x",
+    "pnpm": ">=10.0.0"
+  },
+  "strapi": {
+    "uuid": "b6ce9b29-582f-4f80-9ff2-85d6f424bd45"
+  }
 }

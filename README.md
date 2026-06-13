@@ -8,7 +8,7 @@ Yukon Connect is a TypeScript monorepo for a web application that will help user
 apps/
   frontend/   # Next.js contract search frontend
   api/        # Future Node.js TypeScript API
-  strapi/     # Future Strapi CMS/admin app
+  strapi/     # Strapi CMS/admin app for editorial content, tags, synonyms, and feedback
 packages/
   shared/     # Shared TypeScript types, schemas, and utilities
 infra/
@@ -54,6 +54,30 @@ Run lint checks for workspace packages/apps that define a lint script:
 ```bash
 pnpm lint
 ```
+
+
+### Strapi CMS/admin
+
+Strapi is configured as the CMS/admin surface for site pages, editorial search tags, editorial search synonyms, informational content, and feedback/contact submissions. It is not the primary contract search engine; contract search remains in the API, PostgreSQL contract tables, and search/indexing code.
+
+Run Strapi locally after installing dependencies and starting PostgreSQL:
+
+```bash
+docker compose up -d postgres
+DATABASE_URL="postgresql://yukon:<your-local-password>@localhost:5432/yukon_connect" pnpm --filter @yukon-connect/strapi dev
+```
+
+Open the admin at <http://localhost:1337/admin>. On first run, create the first administrator account, then use **Content Manager** for `Page`, `SearchTag`, `SearchSynonym`, and `Feedback`. See [docs/strapi.md](docs/strapi.md) for details.
+
+### Feedback/contact form
+
+The frontend includes a feedback form that posts to the API `POST /feedback` endpoint. Apply the feedback table before testing submissions against a new local database:
+
+```bash
+psql "$DATABASE_URL" -f infra/sql/feedback.sql
+```
+
+The form sends the current URL/search context with the message, while the API returns only non-sensitive metadata after saving the submission.
 
 ### Frontend configuration
 
@@ -132,7 +156,7 @@ docker compose down -v
 
 ## Current status
 
-This repository currently contains the base monorepo structure, Docker Compose configuration for local infrastructure, an initial read-only Node.js TypeScript API for contract search, and a Next.js frontend for searching and filtering contracts. The Strapi CMS/admin app is still a placeholder for later iterations, and Strapi must not be used as the primary contract search store.
+This repository currently contains the base monorepo structure, Docker Compose configuration for local infrastructure, an initial read-only Node.js TypeScript API for contract search, a Next.js frontend for searching and filtering contracts, and a Strapi CMS/admin app for editorial content, tags, synonyms, and feedback. Strapi must not be used as the primary contract search store or as a duplicate contract search engine.
 
 ## Database schema inspection
 

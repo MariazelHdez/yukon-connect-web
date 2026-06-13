@@ -134,3 +134,69 @@ test('GET /contracts passes q through and returns ranked search results', async 
   assert.equal(body.data[0]?.score, 0.75);
   assert.deepEqual(body.data[0]?.match_reason, ['full_text', 'synonym_match']);
 });
+
+
+test('POST /feedback validates, sanitizes, saves feedback, and returns no sensitive fields', async () => {
+  const savedFeedback = {
+    id: 42,
+    status: 'new',
+    created_at: '2026-06-12T00:00:00.000Z',
+  };
+  const feedbackRepository = {
+    async createFeedback(feedback: { name: string; email: string; message: string; context: unknown }) {
+      assert.deepEqual(feedback, {
+        name: 'Jane Doe',
+        email: 'jane@example.com',
+        message: 'This is detailed feedback for Yukon Connect.',
+        context: {
+          url: 'http://localhost:3000/?q=roads',
+          search: 'q=roads',
+        },
+      });
+      return savedFeedback;
+    },
+  };
+
+  const app = createApp({ db: null, feedbackRepository });
+  const response = await app.inject('/feedback', {
+    method: 'POST',
+    body: {
+      name: '  Jane   Doe ',
+      email: '  JANE@example.com ',
+      message: ' This is detailed feedback for Yukon Connect. ',
+      context: {
+        url: ' http://localhost:3000/?q=roads ',
+        search: ' q=roads ',
+      },
+    },
+  });
+  const body = response.json() as { id: number; status: string; created_at: string; email?: string; message?: string };
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(body, savedFeedback);
+  assert.equal(body.email, undefined);
+  assert.equal(body.message, undefined);
+});
+
+test('POST /feedback rejects invalid feedback input', async () => {
+  const feedbackRepository = {
+    async createFeedback() {
+      throw new Error('createFeedback should not be called for invalid feedback.');
+    },
+  };
+
+  const app = createApp({ db: null, feedbackRepository });
+  const response = await app.inject('/feedback', {
+    method: 'POST',
+    body: {
+      name: '',
+      email: 'invalid',
+      message: 'short',
+    },
+  });
+  const body = response.json() as { error: string; details: string[] };
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error, 'Invalid request parameters.');
+  assert.deepEqual(body.details, ['name is required.', 'email must be a valid email address.', 'message must be at least 10 characters.']);
+});

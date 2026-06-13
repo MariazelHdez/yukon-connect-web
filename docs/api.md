@@ -110,6 +110,41 @@ Returns distinct values available for list filters from `vw_contracts_full`.
 }
 ```
 
+
+### `POST /feedback`
+
+Stores a user feedback/contact submission in `app_feedback`. The endpoint trims and sanitizes text inputs, validates required fields, stores optional page/search context as JSON, and returns only non-sensitive metadata. It does not echo the submitted email address or message.
+
+Request body:
+
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "message": "The filters were helpful, but I expected clearer empty-state guidance.",
+  "context": {
+    "url": "http://localhost:3000/?q=roads",
+    "search": "q=roads"
+  }
+}
+```
+
+Successful response:
+
+```json
+{
+  "id": 42,
+  "status": "new",
+  "created_at": "2026-06-12T00:00:00.000Z"
+}
+```
+
+Invalid submissions return `400` with validation details. Apply the local feedback table before using this endpoint against a new database:
+
+```bash
+psql "$DATABASE_URL" -f infra/sql/feedback.sql
+```
+
 ## Full-text search index
 
 The `q` parameter prefers a PostgreSQL table named `contract_search_index` plus the `tags`, `contract_tags`, and `search_synonyms` enrichment tables. If an enrichment/index table is missing, the API falls back to a direct parameterized `ILIKE` search over `vw_contracts_full` so contract search degrades functionally instead of failing. Apply the SQL setup in `infra/sql/contract_search_index.sql` and `infra/sql/tags_and_search_synonyms.sql` after `vw_contracts_full` and `contract_records` exist to enable indexed full-text ranking, tag matching, and synonym expansion:

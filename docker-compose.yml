@@ -73,9 +73,17 @@ services:
     profiles:
       - apps
     working_dir: /workspace
-    command: ["sh", "-c", "echo 'Strapi service placeholder: scaffold apps/strapi before enabling this profile.' && sleep infinity"]
+    command: ["sh", "-c", "corepack enable && pnpm --filter @yukon-connect/strapi install && pnpm --filter @yukon-connect/strapi dev"]
     environment:
+      HOST: "0.0.0.0"
+      PORT: "1337"
       STRAPI_DATABASE_URL: "${STRAPI_DATABASE_URL:-postgresql://yukon:change-me-in-local-env@postgres:5432/yukon_connect}"
+      DATABASE_SSL: "${STRAPI_DATABASE_SSL:-false}"
+      APP_KEYS: "${STRAPI_APP_KEYS:-replace-me-key-a,replace-me-key-b}"
+      ADMIN_JWT_SECRET: "${STRAPI_ADMIN_JWT_SECRET:-replace-me-with-a-secure-admin-jwt-secret}"
+      API_TOKEN_SALT: "${STRAPI_API_TOKEN_SALT:-replace-me-with-a-secure-api-token-salt}"
+      TRANSFER_TOKEN_SALT: "${STRAPI_TRANSFER_TOKEN_SALT:-replace-me-with-a-secure-transfer-token-salt}"
+      ENCRYPTION_KEY: "${STRAPI_ENCRYPTION_KEY:-replace-me-with-a-secure-32-char-key}"
     ports:
       - "1337:1337"
     volumes:
