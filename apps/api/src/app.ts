@@ -4,18 +4,22 @@ import type { DatabaseClient } from './db/database.ts';
 import { getDatabaseStatus } from './db/postgres.ts';
 import { ContractsRepository } from './contracts/repository.ts';
 import { parseContractId, parseContractListQuery, ValidationError } from './contracts/validation.ts';
+import { FeedbackRepository, type FeedbackWriter } from './feedback/repository.ts';
+import { parseFeedbackSubmission } from './feedback/validation.ts';
 
 export interface AppOptions {
   db: DatabaseClient | null;
   repository?: ContractsRepository;
+  feedbackRepository?: FeedbackWriter;
 }
 
 export function createApp(options: AppOptions) {
   const repository = options.repository ?? (options.db ? new ContractsRepository(options.db) : null);
+  const feedbackRepository = options.feedbackRepository ?? (options.db ? new FeedbackRepository(options.db) : null);
 
   const server = createServer(async (request, response) => {
     try {
-      await routeRequest(request, response, options.db, repository);
+      await routeRequest(request, response, options.db, repository, feedbackRepository);
     } catch (error) {
       sendError(response, error);
     }
@@ -23,7 +27,8 @@ export function createApp(options: AppOptions) {
 
   return {
     server,
-    inject: (path: string, init: { method?: string } = {}) => inject(server, path, init.method ?? 'GET'),
+    inject: (path: string, init: { method?: string; body?: unknown; headers?: Record<string, string> } = {}) =>
+      inject(server, path, init.method ?? 'GET', init.body, init.headers),
     close: () => new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };
 }
@@ -33,9 +38,29 @@ async function routeRequest(
   response: ServerResponse,
   db: DatabaseClient | null,
   repository: ContractsRepository | null,
+  feedbackRepository: FeedbackWriter | null,
 ): Promise<void> {
   const method = request.method ?? 'GET';
   const url = new URL(request.url ?? '/', 'http://localhost');
+
+  if (url.pathname === '/feedback') {
+    if (method !== 'POST') {
+      throw httpError(405, 'Method not allowed.');
+    }
+
+    if (!feedbackRepository) {
+      throw httpError(503, 'Database is not configured. Set DATABASE_URL to enable feedback submissions.');
+    }
+
+    const feedback = parseFeedbackSubmission(await readJsonBody(request));
+    const savedFeedback = await feedbackRepository.createFeedback(feedback);
+    sendJson(response, 201, {
+      id: savedFeedback.id,
+      status: savedFeedback.status,
+      created_at: savedFeedback.created_at,
+    });
+    return;
+  }
 
   if (method !== 'GET') {
     throw httpError(405, 'Method not allowed.');
@@ -78,6 +103,31 @@ async function routeRequest(
   throw httpError(404, 'Not found.');
 }
 
+async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  const maxBytes = 16 * 1024;
+
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > maxBytes) {
+      throw httpError(413, 'Request body is too large.');
+    }
+    chunks.push(buffer);
+  }
+
+  if (chunks.length === 0) {
+    throw new ValidationError(['Request body must be a JSON object.']);
+  }
+
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+  } catch {
+    throw new ValidationError(['Request body must be valid JSON.']);
+  }
+}
+
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, {
     'content-type': 'application/json; charset=utf-8',
@@ -108,11 +158,21 @@ function httpError(statusCode: number, message: string): Error & { statusCode: n
   return error;
 }
 
-function inject(server: ReturnType<typeof createServer>, path: string, method: string): Promise<{ statusCode: number; body: string; json: () => unknown }> {
+function inject(
+  server: ReturnType<typeof createServer>,
+  path: string,
+  method: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<{ statusCode: number; body: string; json: () => unknown }> {
   return new Promise((resolve, reject) => {
     server.listen(0, '127.0.0.1', () => {
       const address = server.address() as AddressInfo;
-      const request = globalThis.fetch(`http://127.0.0.1:${address.port}${path}`, { method });
+      const request = globalThis.fetch(`http://127.0.0.1:${address.port}${path}`, {
+        method,
+        headers: body === undefined ? headers : { 'content-type': 'application/json', ...headers },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
       request
         .then(async (response) => {
           const body = await response.text();

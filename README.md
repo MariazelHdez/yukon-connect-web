@@ -69,6 +69,16 @@ DATABASE_URL="postgresql://yukon:<your-local-password>@localhost:5432/yukon_conn
 
 Open the admin at <http://localhost:1337/admin>. On first run, create the first administrator account, then use **Content Manager** for `Page`, `SearchTag`, `SearchSynonym`, and `Feedback`. See [docs/strapi.md](docs/strapi.md) for details.
 
+### Feedback/contact form
+
+The frontend includes a feedback form that posts to the API `POST /feedback` endpoint. Apply the feedback table before testing submissions against a new local database:
+
+```bash
+psql "$DATABASE_URL" -f infra/sql/feedback.sql
+```
+
+The form sends the current URL/search context with the message, while the API returns only non-sensitive metadata after saving the submission.
+
 ### Frontend configuration
 
 The Next.js frontend proxies `/contracts` and `/contracts/filters` to the API service. Set `API_BASE_URL` (server-side rewrite target) or `NEXT_PUBLIC_API_BASE_URL` when the API is not running at `http://localhost:3001`.
