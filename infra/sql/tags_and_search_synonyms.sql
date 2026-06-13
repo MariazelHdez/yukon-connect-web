@@ -11,7 +11,7 @@ create table if not exists tags (
 );
 
 create table if not exists contract_tags (
-  contract_record_id bigint not null references contract_records(id) on delete cascade,
+  contract_record_id uuid not null references contract_records(id) on delete cascade,
   tag_id bigint not null references tags(id) on delete cascade,
   source text not null default 'manual',
   confidence numeric(5, 4) not null default 1.0 check (confidence >= 0 and confidence <= 1),
