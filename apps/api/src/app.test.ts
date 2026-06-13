@@ -200,3 +200,94 @@ test('POST /feedback rejects invalid feedback input', async () => {
   assert.equal(body.error, 'Invalid request parameters.');
   assert.deepEqual(body.details, ['name is required.', 'email must be a valid email address.', 'message must be at least 10 characters.']);
 });
+
+test('GET /contracts rejects pageSize above the maximum', async () => {
+  const app = createApp({ db: null, repository: {} as never });
+  const response = await app.inject('/contracts?pageSize=100000');
+  const body = response.json() as { error: string; details: string[] };
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error, 'Invalid request parameters.');
+  assert.deepEqual(body.details, ['pageSize must be less than or equal to 100.']);
+});
+
+test('security headers and CORS use configured allowed origins', async () => {
+  const app = createApp({ db: null, security: { corsOrigins: ['https://contracts.example.gov'] } });
+  const response = await app.inject('/health', { headers: { origin: 'https://contracts.example.gov' } });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers.get('access-control-allow-origin'), 'https://contracts.example.gov');
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(response.headers.get('x-frame-options'), 'DENY');
+  assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+  assert.equal(response.headers.get('content-security-policy'), "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+});
+
+test('CORS preflight responds before route handling', async () => {
+  const app = createApp({ db: null, security: { corsOrigins: ['https://contracts.example.gov'] } });
+  const response = await app.inject('/contracts', {
+    method: 'OPTIONS',
+    headers: { origin: 'https://contracts.example.gov', 'access-control-request-method': 'GET' },
+  });
+
+  assert.equal(response.statusCode, 204);
+  assert.equal(response.headers.get('access-control-allow-origin'), 'https://contracts.example.gov');
+  assert.equal(response.headers.get('access-control-allow-methods'), 'GET,POST,OPTIONS');
+});
+
+test('rate limiting rejects requests over the configured limit', async () => {
+  const app = createApp({ db: null, security: { rateLimitMax: 1, rateLimitWindowMs: 60_000 } });
+  const first = await app.inject('/health');
+  const second = await app.inject('/health');
+  const body = second.json() as { error: string };
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.headers.get('ratelimit-limit'), '1');
+  assert.equal(second.statusCode, 429);
+  assert.equal(second.headers.get('retry-after'), '60');
+  assert.deepEqual(body, { error: 'Too many requests.' });
+});
+
+test('unexpected errors return generic responses and structured logs without request query or secrets', async () => {
+  const originalConsoleError = console.error;
+  const logs: string[] = [];
+  console.error = (message?: unknown) => {
+    logs.push(String(message));
+  };
+
+  try {
+    const repository = {
+      async listContracts() {
+        throw new Error('password=super-secret database failure');
+      },
+      async getContract() {
+        return null;
+      },
+      async getFilters() {
+        return {
+          vendors: [],
+          departments: [],
+          communities: [],
+          fiscalYears: [],
+          contractTypes: [],
+          tenderClasses: [],
+          projectManagers: [],
+        };
+      },
+    };
+    const app = createApp({ db: null, repository });
+    const response = await app.inject('/contracts?q=secret-query');
+    const body = response.json() as { error: string };
+
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(body, { error: 'Internal server error.' });
+    assert.equal(logs.length, 1);
+    const log = JSON.parse(logs[0] ?? '{}') as { path: string; error: string; status_code: number };
+    assert.equal(log.path, '/contracts');
+    assert.equal(log.error, 'Error');
+    assert.equal(log.status_code, 500);
+    assert.doesNotMatch(logs[0] ?? '', /super-secret|secret-query|password/);
+  } finally {
+    console.error = originalConsoleError;
+  }
+});

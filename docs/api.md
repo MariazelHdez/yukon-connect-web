@@ -6,6 +6,10 @@ The API is a small TypeScript Node.js service under `apps/api`. It only reads fr
 
 - `API_PORT`: HTTP port. Defaults to `3001`.
 - `DATABASE_URL`: PostgreSQL connection string. If unset, `/health` still works and reports that the database is not configured; contract endpoints return `503`.
+- `API_CORS_ORIGINS` / `API_CORS_ORIGIN`: allowed browser origins. `API_CORS_ORIGINS` accepts a comma-separated list and defaults locally to `http://localhost:3000`.
+- `API_RATE_LIMIT_MAX`: maximum requests per rate-limit window. Defaults to `120`.
+- `API_RATE_LIMIT_WINDOW_MS`: rate-limit window in milliseconds. Defaults to `60000`.
+- `API_ENABLE_HSTS`: set to `true` only when the API is served over HTTPS.
 
 This repo intentionally avoids failing when `DATABASE_URL` is absent. To use PostgreSQL-backed endpoints in an environment where the `pg` package is not already installed, add/install `pg` with your package manager before starting the API.
 
@@ -76,7 +80,7 @@ Response shape:
 }
 ```
 
-Invalid query parameters return `400` with a `details` array.
+Invalid query parameters return `400` with a `details` array. `pageSize` is capped at `100`, so `GET /contracts` cannot request unlimited rows in a single response.
 
 
 `match_reason` explains why each search result matched the submitted `q` value. It can include:
@@ -179,3 +183,7 @@ pnpm --filter @yukon-connect/api inspect:schema
 ```
 
 If `DATABASE_URL` is missing, the script prints instructions and exits successfully without attempting a database connection. When `DATABASE_URL` is set, it reads `information_schema` metadata and writes `docs/schema-inspection.json` by default. It does not execute `DROP`, `TRUNCATE`, `ALTER TABLE`, `CREATE TABLE`, `CREATE INDEX`, or data-modifying statements.
+
+## Security and performance
+
+See [docs/security-performance.md](security-performance.md) for the SQL injection review, CORS/rate-limit configuration, structured error logging policy, index recommendations, and production hardening checklist.

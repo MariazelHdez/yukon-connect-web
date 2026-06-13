@@ -38,6 +38,12 @@ export interface ContractListResult {
   };
 }
 
+export interface ContractsReader {
+  listContracts(query: ContractListQuery): Promise<ContractListResult>;
+  getContract(id: number): Promise<ContractRow | null>;
+  getFilters(): Promise<ContractFilters>;
+}
+
 export interface ContractFilters {
   vendors: string[];
   departments: string[];
@@ -48,6 +54,8 @@ export interface ContractFilters {
   projectManagers: string[];
 }
 
+// Keep SQL identifiers in a server-side allowlist. User-supplied filter values
+// are always bound separately through positional PostgreSQL parameters.
 const FILTER_COLUMNS = {
   vendor: 'v.vendor',
   department: 'v.department',
@@ -160,7 +168,7 @@ const MATCH_REASON_SQL = `array_remove(array[
         case when coalesce(ctm.synonym_tag_match, false) or ${SYNONYM_DIRECT_SEARCH_PREDICATE} then 'synonym_match' end
       ], null)`;
 
-export class ContractsRepository {
+export class ContractsRepository implements ContractsReader {
   private readonly db: DatabaseClient;
 
   constructor(db: DatabaseClient) {
