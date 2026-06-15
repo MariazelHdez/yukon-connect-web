@@ -99,6 +99,91 @@ Run formatters for workspace packages/apps that define a format script:
 pnpm format
 ```
 
+
+## Run locally with cloud database
+
+Yukon Connect supports running the API and frontend locally against an existing remote PostgreSQL/Supabase database. **Use staging or a recent copy first; do not point local development at production unless you have explicitly confirmed that this is safe.** Never commit real credentials, and do not put real Supabase/PostgreSQL secrets in this README.
+
+The repository must not run migrations automatically against a cloud database. Destructive operations such as `DROP`, `TRUNCATE`, schema recreation, or data deletion are not part of the local startup flow. Any command that can modify real data, including search-index rebuilds or SQL files under `infra/sql`, must be run manually only after confirming the target database.
+
+### Mode A: API local + frontend local + cloud PostgreSQL/Supabase
+
+```bash
+pnpm install
+cp .env.example .env
+```
+
+Edit `.env` and set at least these local-only values:
+
+```bash
+DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>?sslmode=require
+DATABASE_SSL=true
+PGSSLMODE=require
+API_PORT=3001
+FRONTEND_PORT=3000
+CORS_ORIGIN=http://localhost:3000
+API_BASE_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+
+If your provider gives both pooled and direct URLs, use the pooled/application URL for `DATABASE_URL` unless a tool specifically needs a direct connection. `DIRECT_DATABASE_URL` is documented in `.env.example` for manual tools, but this repo does not use it automatically.
+
+Safely test the remote connection. This command only runs `select version(), current_database(), current_schema()` and does not modify data:
+
+```bash
+pnpm db:check
+```
+
+Inspect the schema without changing data:
+
+```bash
+pnpm db:inspect
+```
+
+Start the API:
+
+```bash
+pnpm --filter @yukon-connect/api dev
+```
+
+Start the frontend in a second terminal:
+
+```bash
+API_BASE_URL=http://localhost:3001 NEXT_PUBLIC_API_URL=http://localhost:3001 pnpm --filter @yukon-connect/frontend dev
+```
+
+Open <http://localhost:3000>. The API also starts without `DATABASE_URL`; `/health` remains available and database-backed endpoints return clear `503` errors until a database URL is configured.
+
+If the search index exists and you intentionally need to rebuild it, run this manually only after confirming the target database because it can modify real data:
+
+```bash
+pnpm --filter @yukon-connect/api rebuild:contract-search-index
+```
+
+### Mode B: all local with Docker PostgreSQL
+
+Use this mode for isolated local infrastructure. In `.env`, use local Docker values instead of cloud credentials:
+
+```bash
+POSTGRES_DB=yukon_connect
+POSTGRES_USER=yukon
+POSTGRES_PASSWORD=change-me-in-your-local-env
+DATABASE_URL=postgresql://yukon:change-me-in-your-local-env@localhost:5432/yukon_connect
+DATABASE_SSL=false
+PGSSLMODE=disable
+```
+
+Start local PostgreSQL, check the connection, then run the apps:
+
+```bash
+docker compose up -d postgres
+pnpm db:check
+pnpm --filter @yukon-connect/api dev
+pnpm --filter @yukon-connect/frontend dev
+```
+
+Docker Compose starts PostgreSQL only; it does not run migrations automatically. Apply SQL files manually only when you intentionally want to change the local database. See [docs/local-development.md](docs/local-development.md) and [docs/environment.md](docs/environment.md) for more detail.
+
 ## GitLab CI/CD
 
 This repository includes a GitLab CI pipeline in `.gitlab-ci.yml` for merge requests and branch pipelines. The pipeline uses Node.js 24, Corepack, pnpm 10.28.1, and a cached pnpm store to avoid downloading dependencies from scratch on every job.
