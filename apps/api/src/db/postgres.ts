@@ -29,7 +29,7 @@ export class PostgresDatabaseClient implements DatabaseClient {
 
     try {
       const pg = await import('pg');
-      const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+      const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: sslConfig() });
       initializationMessage = undefined;
       return new PostgresDatabaseClient(pool);
     } catch (error) {
@@ -45,6 +45,17 @@ export class PostgresDatabaseClient implements DatabaseClient {
   async close(): Promise<void> {
     await this.pool.end();
   }
+}
+
+function sslConfig() {
+  const sslMode = process.env.PGSSLMODE?.toLowerCase();
+  const databaseSsl = process.env.DATABASE_SSL?.toLowerCase();
+
+  if (sslMode === 'require' || databaseSsl === 'true') {
+    return { rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false' };
+  }
+
+  return undefined;
 }
 
 export async function getDatabaseStatus(db: DatabaseClient | null): Promise<DatabaseStatus> {

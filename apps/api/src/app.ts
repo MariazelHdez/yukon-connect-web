@@ -196,7 +196,7 @@ function getSecurityConfig(overrides: Partial<SecurityConfig> = {}): SecurityCon
   return {
     corsOrigins:
       overrides.corsOrigins ??
-      parseCsv(process.env.API_CORS_ORIGINS ?? process.env.API_CORS_ORIGIN ?? 'http://localhost:3000'),
+      parseCsv(process.env.API_CORS_ORIGINS ?? process.env.API_CORS_ORIGIN ?? process.env.CORS_ORIGIN ?? 'http://localhost:3000'),
     rateLimitWindowMs:
       overrides.rateLimitWindowMs ??
       parsePositiveEnvInteger(process.env.API_RATE_LIMIT_WINDOW_MS, DEFAULT_RATE_LIMIT_WINDOW_MS),

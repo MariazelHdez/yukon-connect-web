@@ -311,7 +311,7 @@ ${CONTRACT_LIST_SELECT},
       cross join search_query sq
       ${combinedWhereSql}
     `;
-    const queryValues = [...values, query.q];
+    const queryValues: QueryValue[] = [...values, query.q ?? ''];
 
     try {
       const [dataResult, countResult] = await Promise.all([
@@ -359,7 +359,7 @@ ${CONTRACT_LIST_SELECT},
         + case when v.contract_description ilike '%' || sq.raw_query || '%' then 50 else 0 end
       )`;
     const combinedWhereSql = appendWhereCondition(whereSql, searchPredicate);
-    const queryValues = [...values, query.q];
+    const queryValues: QueryValue[] = [...values, query.q ?? ''];
 
     const dataSql = `
       ${searchCte}
