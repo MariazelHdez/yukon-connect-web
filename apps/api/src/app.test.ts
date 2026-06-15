@@ -223,6 +223,15 @@ test('security headers and CORS use configured allowed origins', async () => {
   assert.equal(response.headers.get('content-security-policy'), "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
 });
 
+
+test('GET /contracts does not allow disallowed CORS origins', async () => {
+  const app = createApp({ db: null, security: { corsOrigins: ['https://contracts.example.gov'] } });
+  const response = await app.inject('/health', { headers: { origin: 'https://evil.example' } });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
+});
+
 test('CORS preflight responds before route handling', async () => {
   const app = createApp({ db: null, security: { corsOrigins: ['https://contracts.example.gov'] } });
   const response = await app.inject('/contracts', {

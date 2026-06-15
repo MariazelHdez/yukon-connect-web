@@ -29,6 +29,8 @@ const STRING_FILTERS = [
 const NUMBER_FILTERS = ['minAmount', 'maxAmount'] as const;
 const DATE_FILTERS = ['startDateFrom', 'startDateTo'] as const;
 
+export const MAX_CONTRACT_PAGE_SIZE = 100;
+
 export class ValidationError extends Error {
   readonly statusCode = 400;
   readonly details: string[];
@@ -43,7 +45,7 @@ export class ValidationError extends Error {
 export function parseContractListQuery(searchParams: URLSearchParams): ContractListQuery {
   const errors: string[] = [];
   const page = parsePositiveInteger(searchParams.get('page'), 'page', 1, errors);
-  const pageSize = parsePositiveInteger(searchParams.get('pageSize'), 'pageSize', 25, errors, 100);
+  const pageSize = parsePositiveInteger(searchParams.get('pageSize'), 'pageSize', 25, errors, MAX_CONTRACT_PAGE_SIZE);
   const parsed: ContractListQuery = { page, pageSize };
 
   for (const key of STRING_FILTERS) {
