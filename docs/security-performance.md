@@ -14,7 +14,7 @@
 The API uses PostgreSQL positional parameters for all user-provided values:
 
 - `/contracts` filters are converted into `$1`, `$2`, ... placeholders by `buildWhereClause`.
-- The `q` search value is bound into the `search_query` CTE as text and is reused inside SQL expressions from that parameter.
+- The `q` search value is bound into the `search_query` CTE as text and is reused inside SQL expressions from that parameter; malicious strings remain in the driver values array and are not concatenated into SQL.
 - `limit` and `offset` are bound parameters derived from validated positive integers, with `pageSize` capped at `100`.
 - `/contracts/:id` parses IDs as positive integers and binds the ID as `$1`.
 - `/feedback` inserts name, email, message, and JSON context with bound parameters.
@@ -42,8 +42,8 @@ pnpm --filter @yukon-connect/api db:inspect
 ## Production recommendations
 
 - Terminate TLS before the API and set `API_ENABLE_HSTS=true` only once HTTPS is enforced end-to-end for the public host.
-- Set `API_CORS_ORIGINS` to exact frontend origins, for example `https://contracts.example.gov`, not a wildcard.
-- Tune `API_RATE_LIMIT_MAX` and `API_RATE_LIMIT_WINDOW_MS` per environment. For multi-instance production, replace the in-memory limiter with a shared Redis or gateway/WAF limiter so limits apply across all replicas.
+- Set `API_CORS_ORIGINS` to exact frontend origins, for example `https://contracts.example.gov`, not a wildcard. Leave it unset only for local development defaults; disallowed origins receive no `Access-Control-Allow-Origin` response header.
+- Tune `API_RATE_LIMIT_MAX` and `API_RATE_LIMIT_WINDOW_MS` per environment. The built-in limiter is process-local and intentionally basic; for multi-instance production, replace it with a shared Redis or gateway/WAF limiter so limits apply across all replicas.
 - Keep structured logs but route them to a secure log pipeline with retention controls. Do not add bodies, cookies, authorization headers, emails, feedback messages, or database URLs to logs.
 - Rebuild `contract_search_index` after contract source data changes and monitor query latency for `/contracts` with and without `q`.
 - Verify PostgreSQL indexes with `EXPLAIN (ANALYZE, BUFFERS)` on production-like data before deploying new indexes broadly.

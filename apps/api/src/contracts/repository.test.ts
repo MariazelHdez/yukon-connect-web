@@ -83,3 +83,46 @@ test('listContracts falls back to direct vw_contracts_full search when contract_
   assert.deepEqual(fallbackDataQuery.values, ['bridge', 25, 0]);
   assert.deepEqual(fallbackCountQuery.values, ['bridge']);
 });
+
+test('listContracts binds filters, limit, and offset without interpolating user values', async () => {
+  const db = new RecordingDb();
+  const repository = new ContractsRepository(db);
+
+  await repository.listContracts({
+    page: 3,
+    pageSize: 50,
+    vendor: "Acme'; drop table contract_records; --",
+    minAmount: 100,
+    maxAmount: 500,
+  });
+
+  const [dataQuery, countQuery] = db.calls;
+  assert.ok(dataQuery);
+  assert.ok(countQuery);
+  assert.match(dataQuery.sql, /v\.vendor = \$1/);
+  assert.match(dataQuery.sql, /v\.amount >= \$2/);
+  assert.match(dataQuery.sql, /v\.amount <= \$3/);
+  assert.match(dataQuery.sql, /limit \$4/);
+  assert.match(dataQuery.sql, /offset \$5/);
+  assert.doesNotMatch(dataQuery.sql, /drop table|Acme'/i);
+  assert.deepEqual(dataQuery.values, ["Acme'; drop table contract_records; --", 100, 500, 50, 100]);
+  assert.deepEqual(countQuery.values, ["Acme'; drop table contract_records; --", 100, 500]);
+});
+
+test('searchContracts binds malicious q as a parameter instead of interpolating it into SQL', async () => {
+  const db = new RecordingDb();
+  const repository = new ContractsRepository(db);
+  const maliciousQuery = "bridge'); drop table contract_records; --";
+
+  await repository.listContracts({ page: 1, pageSize: 25, q: maliciousQuery });
+
+  const [dataQuery, countQuery] = db.calls;
+  assert.ok(dataQuery);
+  assert.ok(countQuery);
+  assert.match(dataQuery.sql, /from \(select \$1::text as raw_query\) raw/);
+  assert.match(dataQuery.sql, /limit \$2/);
+  assert.match(dataQuery.sql, /offset \$3/);
+  assert.doesNotMatch(dataQuery.sql, /drop table|bridge'\)/i);
+  assert.deepEqual(dataQuery.values, [maliciousQuery, 25, 0]);
+  assert.deepEqual(countQuery.values, [maliciousQuery]);
+});
