@@ -1,4 +1,4 @@
-{
+export default {
   "kind": "collectionType",
   "collectionName": "feedbacks",
   "info": {
@@ -37,4 +37,4 @@
       "required": true
     }
   }
-}
+} as const;

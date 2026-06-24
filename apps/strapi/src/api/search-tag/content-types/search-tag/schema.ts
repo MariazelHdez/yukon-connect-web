@@ -1,4 +1,4 @@
-{
+export default {
   "kind": "collectionType",
   "collectionName": "search_tags",
   "info": {
@@ -30,4 +30,4 @@
       "type": "text"
     }
   }
-}
+} as const;
