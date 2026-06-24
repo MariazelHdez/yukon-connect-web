@@ -11,7 +11,8 @@
     "start": "strapi start",
     "strapi": "strapi",
     "lint": "tsc --noEmit",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "strapi:validate": "node scripts/validate-strapi-content-types.ts"
   },
   "dependencies": {
     "@strapi/plugin-users-permissions": "latest",

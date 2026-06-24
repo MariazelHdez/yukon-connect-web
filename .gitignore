@@ -31,7 +31,8 @@ Thumbs.db
 # Strapi / uploads generated during local development
 apps/strapi/.cache/
 apps/strapi/build/
-apps/strapi/public/uploads/
+apps/strapi/public/uploads/*
+!apps/strapi/public/uploads/.gitkeep
 
 # Docker/local runtime data
 infra/docker/data/
