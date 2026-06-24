@@ -88,6 +88,17 @@ Check one of these setups:
 
 Do not use `DROP`, `TRUNCATE`, schema recreation, or contract imports as a connectivity fix.
 
+## Missing required middlewares: `strapi::favicon`
+
+Strapi v5 validates the middleware list and fails startup with `Missing required middlewares in configuration. Add the following middlewares: "strapi::favicon"` when the favicon middleware is removed. Keep `strapi::favicon` alongside the normal Strapi middlewares (`logger`, `errors`, `security`, `cors`, `poweredBy`, `query`, `body`, `session`, and `public`). This repo configures it with `path: 'public/favicon.svg'`, so `apps/strapi/public/favicon.svg` must exist.
+
+After editing middleware config, run:
+
+```bash
+pnpm strapi:validate
+pnpm --filter @yukon-connect/strapi develop --debug
+```
+
 ## Missing favicon
 
-The Strapi favicon middleware is disabled in this repo so Strapi does not try to open a missing `apps/strapi/favicon.png`. If a custom favicon is added later, keep the referenced file committed or remove the middleware reference.
+Strapi v5 requires `strapi::favicon` in `apps/strapi/config/middlewares.ts`. This repo keeps the required middleware enabled and points it at the committed text asset `apps/strapi/public/favicon.svg` to avoid binary favicon diffs while preventing `ENOENT`. If you change the middleware `path`, commit the referenced file and run `pnpm strapi:validate`.

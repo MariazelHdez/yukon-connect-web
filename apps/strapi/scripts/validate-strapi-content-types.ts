@@ -111,9 +111,25 @@ if (!fs.existsSync(uploads) || !fs.statSync(uploads).isDirectory()) fail(`${rel(
 if (!fs.existsSync(uploadsGitkeep)) fail(`${rel(uploadsGitkeep)} is missing`);
 
 const middlewareFile = path.join(appRoot, 'config', 'middlewares.ts');
-if (fs.existsSync(middlewareFile) && readText(middlewareFile).includes('strapi::favicon')) {
-  const favicon = path.join(appRoot, 'favicon.png');
-  if (!fs.existsSync(favicon)) fail(`${rel(middlewareFile)} enables strapi::favicon, but ${rel(favicon)} does not exist`);
+if (!fs.existsSync(middlewareFile)) {
+  fail(`${rel(middlewareFile)} is missing`);
+} else {
+  const middlewareText = readText(middlewareFile);
+  if (!middlewareText.includes('strapi::favicon')) {
+    fail(`${rel(middlewareFile)} must include required Strapi middleware strapi::favicon`);
+  } else {
+    const customPath = middlewareText.match(/path\s*:\s*['"]([^'"]+)['"]/);
+    const faviconCandidates = customPath
+      ? [path.join(appRoot, customPath[1])]
+      : [path.join(appRoot, 'favicon.png'), path.join(appRoot, 'favicon.ico')];
+    if (!faviconCandidates.some((candidate) => fs.existsSync(candidate))) {
+      fail(
+        customPath
+          ? `${rel(middlewareFile)} configures strapi::favicon path ${customPath[1]}, but that file does not exist`
+          : `${rel(middlewareFile)} enables strapi::favicon, but neither apps/strapi/favicon.png nor apps/strapi/favicon.ico exists`,
+      );
+    }
+  }
 }
 
 const generatedFiles = [
