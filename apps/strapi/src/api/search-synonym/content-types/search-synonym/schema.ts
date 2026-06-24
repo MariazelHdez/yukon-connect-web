@@ -1,4 +1,4 @@
-{
+export default {
   "kind": "collectionType",
   "collectionName": "search_synonyms",
   "info": {
@@ -24,4 +24,4 @@
       "type": "string"
     }
   }
-}
+} as const;

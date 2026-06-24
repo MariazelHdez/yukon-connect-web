@@ -1,4 +1,4 @@
-{
+export default {
   "kind": "collectionType",
   "collectionName": "pages",
   "info": {
@@ -60,4 +60,4 @@
       "component": "site.footer"
     }
   }
-}
+} as const;
