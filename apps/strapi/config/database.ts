@@ -3,10 +3,10 @@ export default ({ env }: { env: any }) => ({
     client: 'postgres',
     connection: {
       connectionString: env(
-        'DATABASE_URL',
-        env('STRAPI_DATABASE_URL', 'postgresql://yukon:change-me-in-local-env@localhost:5432/yukon_connect'),
+        'STRAPI_DATABASE_URL',
+        env('DATABASE_URL', 'postgresql://yukon:change-me-in-local-env@localhost:5432/yukon_connect'),
       ),
-      ssl: env.bool('DATABASE_SSL', false)
+      ssl: env.bool('STRAPI_DATABASE_SSL', env.bool('DATABASE_SSL', false))
         ? {
             rejectUnauthorized: env.bool('DATABASE_SSL_REJECT_UNAUTHORIZED', true),
           }

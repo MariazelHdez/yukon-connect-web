@@ -3,7 +3,7 @@
   "collectionName": "feedback",
   "info": {
     "singularName": "feedback",
-    "pluralName": "feedback-items",
+    "pluralName": "feedbacks",
     "displayName": "Feedback",
     "description": "Contact and feedback submissions from Yukon Connect users."
   },

@@ -67,7 +67,23 @@ docker compose up -d postgres
 DATABASE_URL="postgresql://yukon:<your-local-password>@localhost:5432/yukon_connect" pnpm --filter @yukon-connect/strapi dev
 ```
 
-Open the admin at <http://localhost:1337/admin>. On first run, create the first administrator account, then use **Content Manager** for `Page`, `SearchTag`, `SearchSynonym`, and `Feedback`. See [docs/strapi.md](docs/strapi.md) for details.
+Open the admin at <http://localhost:1337/admin>. On first run, create the first administrator account, then use **Content Manager** for `Page`, `SearchTag`, `SearchSynonym`, and `Feedback`. See [docs/strapi.md](docs/strapi.md) for details and [docs/strapi-troubleshooting.md](docs/strapi-troubleshooting.md) for startup troubleshooting.
+
+Validate the Strapi content-type structure before startup when editing CMS APIs:
+
+```bash
+pnpm strapi:validate
+```
+
+If Strapi reports `Cannot read properties of undefined (reading 'kind')`, clear generated state and validate that every router/controller/service UID has a matching schema:
+
+```bash
+rm -rf apps/strapi/.cache apps/strapi/build apps/strapi/dist apps/strapi/.strapi
+pnpm strapi:validate
+pnpm --filter @yukon-connect/strapi develop --debug
+```
+
+The upload directory is preserved by `apps/strapi/public/uploads/.gitkeep`; real uploaded media remains ignored. Strapi v5 also requires `strapi::favicon` in `apps/strapi/config/middlewares.ts`; this repo points it at `apps/strapi/public/favicon.svg`, and `pnpm strapi:validate` checks that the middleware and referenced file are present. Strapi must not manage, truncate, recreate, or import the massive contract records. Contract data remains owned by the main API/backend and PostgreSQL/Supabase.
 
 ### Feedback/contact form
 

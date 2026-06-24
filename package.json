@@ -13,6 +13,7 @@
     "format": "pnpm --recursive --if-present format",
     "db:inspect": "pnpm --filter @yukon-connect/api db:inspect",
     "generate-embeddings": "pnpm --filter @yukon-connect/api generate-embeddings",
-    "db:check": "pnpm --filter @yukon-connect/api db:check"
+    "db:check": "pnpm --filter @yukon-connect/api db:check",
+    "strapi:validate": "pnpm --filter @yukon-connect/strapi strapi:validate"
   }
 }
