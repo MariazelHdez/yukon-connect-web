@@ -23,3 +23,17 @@ The middleware list does not enable `strapi::favicon` by default. If you add it 
 ## Clear Strapi cache
 
 Stop Strapi and remove `apps/strapi/.cache`, `apps/strapi/.tmp`, and `apps/strapi/build`, then restart Strapi. Do not remove uploaded media or database data.
+## Missing required middlewares: `strapi::favicon`
+
+Strapi v5 validates the middleware list and fails startup with `Missing required middlewares in configuration. Add the following middlewares: "strapi::favicon"` when the favicon middleware is removed. Keep `strapi::favicon` alongside the normal Strapi middlewares (`logger`, `errors`, `security`, `cors`, `poweredBy`, `query`, `body`, `session`, and `public`). This repo configures it with `path: 'public/favicon.svg'`, so `apps/strapi/public/favicon.svg` must exist.
+
+After editing middleware config, run:
+
+```bash
+pnpm strapi:validate
+pnpm --filter @yukon-connect/strapi develop --debug
+```
+
+## Missing favicon
+
+Strapi v5 requires `strapi::favicon` in `apps/strapi/config/middlewares.ts`. This repo keeps the required middleware enabled and points it at the committed text asset `apps/strapi/public/favicon.svg` to avoid binary favicon diffs while preventing `ENOENT`. If you change the middleware `path`, commit the referenced file and run `pnpm strapi:validate`.

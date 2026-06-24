@@ -47,9 +47,48 @@ for (const file of walk(appRoot, (f) => /\.(ts|js|json|d\.ts)$/.test(f))) {
 const disabled = path.join(appRoot, 'src', 'api-disabled');
 if (fs.existsSync(disabled)) errors.push(`${rel(disabled)} must not exist under src`);
 const uploads = path.join(appRoot, 'public', 'uploads');
-if (!fs.existsSync(uploads) || !fs.statSync(uploads).isDirectory()) errors.push(`${rel(uploads)} directory is missing`);
-if (!fs.existsSync(path.join(uploads, '.gitkeep'))) errors.push(`${rel(path.join(uploads, '.gitkeep'))} is missing`);
-const middlewares = path.join(appRoot, 'config', 'middlewares.ts');
-if (fs.existsSync(middlewares) && read(middlewares).includes('strapi::favicon') && !fs.existsSync(path.join(appRoot, 'favicon.png'))) errors.push(`${rel(middlewares)} enables strapi::favicon, but favicon.png does not exist`);
-if (errors.length) { console.error('Strapi validation failed:'); errors.forEach((e) => console.error(`- ${e}`)); process.exit(1); }
+const uploadsGitkeep = path.join(uploads, '.gitkeep');
+if (!fs.existsSync(uploads) || !fs.statSync(uploads).isDirectory()) fail(`${rel(uploads)} directory is missing`);
+if (!fs.existsSync(uploadsGitkeep)) fail(`${rel(uploadsGitkeep)} is missing`);
+
+const middlewareFile = path.join(appRoot, 'config', 'middlewares.ts');
+if (!fs.existsSync(middlewareFile)) {
+  fail(`${rel(middlewareFile)} is missing`);
+} else {
+  const middlewareText = readText(middlewareFile);
+  if (!middlewareText.includes('strapi::favicon')) {
+    fail(`${rel(middlewareFile)} must include required Strapi middleware strapi::favicon`);
+  } else {
+    const customPath = middlewareText.match(/path\s*:\s*['"]([^'"]+)['"]/);
+    const faviconCandidates = customPath
+      ? [path.join(appRoot, customPath[1])]
+      : [path.join(appRoot, 'favicon.png'), path.join(appRoot, 'favicon.ico')];
+    if (!faviconCandidates.some((candidate) => fs.existsSync(candidate))) {
+      fail(
+        customPath
+          ? `${rel(middlewareFile)} configures strapi::favicon path ${customPath[1]}, but that file does not exist`
+          : `${rel(middlewareFile)} enables strapi::favicon, but neither apps/strapi/favicon.png nor apps/strapi/favicon.ico exists`,
+      );
+    }
+  }
+}
+
+const generatedFiles = [
+  path.join(appRoot, 'types', 'generated', 'components.d.ts'),
+  path.join(appRoot, 'types', 'generated', 'contentTypes.d.ts'),
+];
+for (const file of generatedFiles) {
+  if (!fs.existsSync(file)) continue;
+  const refs = readText(file).match(uidPattern) || [];
+  for (const uid of refs) {
+    if (!allowedUids.has(uid)) fail(`${rel(file)} contains stale or invalid UID ${uid}; regenerate or remove generated types`);
+  }
+}
+
+for (const warning of warnings) console.warn(`WARN ${warning}`);
+if (errors.length) {
+  console.error('Strapi validation failed:');
+  for (const error of errors) console.error(`- ${error}`);
+  process.exit(1);
+}
 console.log(`Strapi validation passed (${schemas.size} schemas checked).`);
