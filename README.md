@@ -83,7 +83,7 @@ pnpm strapi:validate
 pnpm --filter @yukon-connect/strapi develop --debug
 ```
 
-The upload directory is preserved by `apps/strapi/public/uploads/.gitkeep`; real uploaded media remains ignored. Strapi v5 also requires `strapi::favicon` in `apps/strapi/config/middlewares.ts`; this repo points it at `apps/strapi/public/favicon.svg`, and `pnpm strapi:validate` checks that the middleware and referenced file are present. Strapi must not manage, truncate, recreate, or import the massive contract records. Contract data remains owned by the main API/backend and PostgreSQL/Supabase.
+The upload directory is preserved by `apps/strapi/public/uploads/.gitkeep`; real uploaded media remains ignored. Strapi must not manage, truncate, recreate, or import the massive contract records. Contract data remains owned by the main API/backend and PostgreSQL/Supabase.
 
 ### Feedback/contact form
 
