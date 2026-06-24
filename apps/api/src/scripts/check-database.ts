@@ -44,4 +44,14 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  if (error instanceof Error && 'code' in error && error.code === 'SELF_SIGNED_CERT_IN_CHAIN') {
+    console.error('Database SSL certificate validation failed: self-signed certificate in certificate chain.');
+    console.error('For local development with Supabase/PostgreSQL, set DATABASE_SSL_REJECT_UNAUTHORIZED=false in your local .env file.');
+    process.exitCode = 1;
+  } else {
+    throw error;
+  }
+}
