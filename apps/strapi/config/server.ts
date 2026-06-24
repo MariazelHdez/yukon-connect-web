@@ -2,6 +2,6 @@ export default ({ env }: { env: any }) => ({
   host: env('HOST', '0.0.0.0'),
   port: env.int('PORT', 1337),
   app: {
-    keys: env.array('APP_KEYS', ['replace-me-key-a', 'replace-me-key-b']),
+    keys: env.array('APP_KEYS', env.array('STRAPI_APP_KEYS', ['replace-me-key-a', 'replace-me-key-b'])),
   },
 });

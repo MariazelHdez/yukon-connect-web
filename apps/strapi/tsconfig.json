@@ -18,6 +18,15 @@
     "target": "ES2020",
     "types": ["node"]
   },
-  "include": ["./", "./**/*.ts", "./**/*.js"],
-  "exclude": ["node_modules", "build", "dist", ".cache", ".tmp"]
+  "include": ["config/**/*.ts", "src/**/*.ts", "scripts/**/*.ts", "types/**/*.d.ts"],
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    ".cache",
+    ".tmp",
+    ".strapi",
+    "src/api-disabled",
+    "src/api-disabled/**"
+  ]
 }
