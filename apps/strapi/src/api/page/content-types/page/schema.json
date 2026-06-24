@@ -21,9 +21,43 @@
       "targetField": "title",
       "required": true
     },
+    "subtitle": {
+      "type": "text"
+    },
+    "pageType": {
+      "type": "enumeration",
+      "enum": [
+        "standard",
+        "report"
+      ],
+      "default": "standard",
+      "required": true
+    },
+    "heroStyle": {
+      "type": "enumeration",
+      "enum": [
+        "simple-blue",
+        "none"
+      ],
+      "default": "simple-blue"
+    },
     "body": {
       "type": "richtext",
       "required": true
+    },
+    "tableData": {
+      "type": "json"
+    },
+    "embedUrl": {
+      "type": "text"
+    },
+    "seo": {
+      "type": "component",
+      "component": "shared.seo"
+    },
+    "footer": {
+      "type": "component",
+      "component": "site.footer"
     }
   }
 }

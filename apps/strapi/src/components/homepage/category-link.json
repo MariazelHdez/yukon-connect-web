@@ -1,0 +1,9 @@
+{
+  "collectionName": "components_homepage_category_links",
+  "info": { "displayName": "Category Link" },
+  "attributes": {
+    "title": { "type": "string", "required": true },
+    "description": { "type": "text" },
+    "query": { "type": "string", "required": true }
+  }
+}

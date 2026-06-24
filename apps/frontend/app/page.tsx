@@ -1,14 +1,4 @@
-import { Suspense } from 'react';
-import { ContractsSearch } from './contracts-search';
-import { FeedbackForm } from './feedback-form';
-
-export default function HomePage() {
-  return (
-    <main className="shell">
-      <Suspense fallback={<div className="loading-card">Loading Yukon Connect…</div>}>
-        <ContractsSearch />
-        <FeedbackForm />
-      </Suspense>
-    </main>
-  );
-}
+import { Homepage } from './components/homepage';
+import { SiteFooter } from './components/site-footer';
+import { getHomepage } from './lib/strapi';
+export default async function HomePage() { const data = await getHomepage(); return <><Homepage data={data}/><SiteFooter footer={data.footer}/></>; }

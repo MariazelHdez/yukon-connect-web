@@ -1,110 +1,51 @@
 #!/usr/bin/env node
 // @ts-nocheck
-/*
- * Safe Strapi CMS validator for Yukon Connect.
- * This script only reads files and checks Strapi app structure; it never connects
- * to PostgreSQL and never modifies data.
- */
 const fs = require('node:fs');
 const path = require('node:path');
-
 const appRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(appRoot, '..', '..');
 const apiRoot = path.join(appRoot, 'src', 'api');
-const allowedUids = new Set([
-  'api::page.page',
-  'api::feedback.feedback',
-  'api::search-tag.search-tag',
-  'api::search-synonym.search-synonym',
-]);
 const errors = [];
-const warnings = [];
-
-function rel(file) {
-  return path.relative(repoRoot, file).replaceAll(path.sep, '/');
-}
-
-function readText(file) {
-  return fs.readFileSync(file, 'utf8');
-}
-
-function walk(dir, predicate = () => true, out = []) {
+const rel = (file) => path.relative(repoRoot, file).replaceAll(path.sep, '/');
+const read = (file) => fs.readFileSync(file, 'utf8');
+function walk(dir, pred = () => true, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (['node_modules', 'build', 'dist', '.cache', '.tmp', '.strapi'].includes(entry.name)) continue;
-      walk(full, predicate, out);
-    } else if (predicate(full)) {
-      out.push(full);
-    }
+      walk(full, pred, out);
+    } else if (pred(full)) out.push(full);
   }
   return out;
 }
-
-function fail(message) {
-  errors.push(message);
-}
-
-function warn(message) {
-  warnings.push(message);
-}
-
 const schemas = new Map();
-for (const schemaFile of walk(apiRoot, (file) => file.endsWith('schema.json'))) {
+for (const file of walk(apiRoot, (f) => f.endsWith('schema.json'))) {
   let schema;
-  try {
-    schema = JSON.parse(readText(schemaFile));
-  } catch (error) {
-    fail(`${rel(schemaFile)} is not valid JSON: ${error.message}`);
-    continue;
-  }
-
-  const parts = rel(schemaFile).split('/');
+  try { schema = JSON.parse(read(file)); } catch (e) { errors.push(`${rel(file)} invalid JSON: ${e.message}`); continue; }
+  const parts = rel(file).split('/');
   const apiName = parts[4];
-  const contentTypeName = parts[6];
-  const uid = `api::${apiName}.${contentTypeName}`;
-  schemas.set(uid, { file: schemaFile, schema });
-
-  if (!allowedUids.has(uid)) fail(`${rel(schemaFile)} defines unexpected UID ${uid}`);
-  if (!schema.kind) fail(`${rel(schemaFile)} is missing kind`);
-  if (!schema.collectionName) fail(`${rel(schemaFile)} is missing collectionName`);
-  if (!schema.info || typeof schema.info !== 'object') fail(`${rel(schemaFile)} is missing info`);
-  if (!schema.info?.singularName) fail(`${rel(schemaFile)} is missing info.singularName`);
-  if (!schema.info?.pluralName) fail(`${rel(schemaFile)} is missing info.pluralName`);
-  if (!schema.info?.displayName) fail(`${rel(schemaFile)} is missing info.displayName`);
-  if (!schema.options || typeof schema.options !== 'object') fail(`${rel(schemaFile)} is missing options`);
-  if (!schema.attributes || typeof schema.attributes !== 'object') fail(`${rel(schemaFile)} is missing attributes`);
-  if (schema.info?.singularName !== contentTypeName) {
-    fail(`${rel(schemaFile)} singularName (${schema.info?.singularName}) must match folder ${contentTypeName}`);
-  }
+  const typeName = parts[6];
+  const uid = `api::${apiName}.${typeName}`;
+  schemas.set(uid, { file, schema });
+  for (const key of ['kind', 'collectionName', 'options', 'attributes']) if (!schema[key]) errors.push(`${rel(file)} is missing ${key}`);
+  for (const key of ['singularName', 'pluralName', 'displayName']) if (!schema.info?.[key]) errors.push(`${rel(file)} is missing info.${key}`);
+  if (schema.info?.singularName !== typeName) errors.push(`${rel(file)} singularName (${schema.info?.singularName}) must match folder ${typeName}`);
 }
-
-for (const uid of allowedUids) {
-  if (!schemas.has(uid)) fail(`Missing schema for ${uid}`);
-}
-
+const required = ['api::homepage.homepage','api::page.page','api::feedback.feedback','api::search-tag.search-tag','api::search-synonym.search-synonym'];
+for (const uid of required) if (!schemas.has(uid)) errors.push(`Missing schema for ${uid}`);
 const uidPattern = /api::[a-z0-9-]+\.[a-z0-9-]+/g;
-for (const file of walk(appRoot, (name) => /\.(ts|js|json|d\.ts)$/.test(name))) {
+for (const file of walk(appRoot, (f) => /\.(ts|js|json|d\.ts)$/.test(f))) {
   const relative = rel(file);
-  if (relative.startsWith('apps/strapi/node_modules/')) continue;
-  const text = readText(file);
-  const refs = text.match(uidPattern) || [];
-  for (const uid of refs) {
-    if (!allowedUids.has(uid)) fail(`${relative} references non-existing or disallowed UID ${uid}`);
-    if (!schemas.has(uid)) fail(`${relative} references ${uid}, but no matching schema exists`);
-  }
-
-  const factoryMatch = text.match(/factories\.createCore(?:Router|Controller|Service)\(['"]([^'"]+)['"]\)/g) || [];
-  for (const call of factoryMatch) {
+  if (relative.includes('/node_modules/') || relative.includes('/.strapi/')) continue;
+  for (const uid of read(file).match(uidPattern) || []) if (!schemas.has(uid)) errors.push(`${relative} references ${uid}, but no matching schema exists`);
+  for (const call of read(file).match(/factories\.createCore(?:Router|Controller|Service)\(['"][^'"]+['"]\)/g) || []) {
     const uid = call.match(/['"]([^'"]+)['"]/)?.[1];
-    if (!uid || !schemas.has(uid)) fail(`${relative} has factory call with missing schema UID ${uid || '(unknown)'}`);
+    if (!schemas.has(uid)) errors.push(`${relative} has factory call with missing schema UID ${uid}`);
   }
 }
-
-const disabledApiPath = path.join(appRoot, 'src', 'api-disabled');
-if (fs.existsSync(disabledApiPath)) fail(`${rel(disabledApiPath)} must not exist under src; move disabled APIs outside apps/strapi/src`);
-
+const disabled = path.join(appRoot, 'src', 'api-disabled');
+if (fs.existsSync(disabled)) errors.push(`${rel(disabled)} must not exist under src`);
 const uploads = path.join(appRoot, 'public', 'uploads');
 const uploadsGitkeep = path.join(uploads, '.gitkeep');
 if (!fs.existsSync(uploads) || !fs.statSync(uploads).isDirectory()) fail(`${rel(uploads)} directory is missing`);

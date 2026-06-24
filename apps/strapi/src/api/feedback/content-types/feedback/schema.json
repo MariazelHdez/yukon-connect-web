@@ -1,6 +1,6 @@
 {
   "kind": "collectionType",
-  "collectionName": "feedback",
+  "collectionName": "feedbacks",
   "info": {
     "singularName": "feedback",
     "pluralName": "feedbacks",
@@ -27,7 +27,12 @@
     },
     "status": {
       "type": "enumeration",
-      "enum": ["new", "reviewing", "resolved", "spam"],
+      "enum": [
+        "new",
+        "reviewing",
+        "resolved",
+        "spam"
+      ],
       "default": "new",
       "required": true
     }
