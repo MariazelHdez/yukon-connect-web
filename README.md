@@ -382,3 +382,22 @@ pnpm --filter @yukon-connect/api inspect:schema
 ```
 
 See [docs/api.md](docs/api.md) for endpoint documentation, accepted filters, response shapes, and local schema inspection instructions.
+
+## Strapi CMS and frontend pages
+
+Strapi manages editorial website content only: homepage content, pages, reports, footer/navigation, and SEO. It must not store or import the 500k+ contract records; contract search remains in the API/backend and PostgreSQL/Supabase.
+
+### Start and validate Strapi
+
+```bash
+pnpm --filter @yukon-connect/strapi strapi:validate
+pnpm --filter @yukon-connect/strapi develop --debug
+```
+
+Use `STRAPI_DATABASE_URL` or `DATABASE_URL` for the Strapi PostgreSQL connection. The validation script checks content-type schema structure, router UIDs, disabled API folders, the uploads folder, and favicon configuration before startup.
+
+### Frontend content and search
+
+The Next.js homepage uses `STRAPI_URL` to fetch the Homepage single type. Report pages fetch the Page collection by slug. If Strapi is unavailable during development, readable fallback content is shown for the homepage and Fiscal Year Trend report. The homepage search and category links navigate to `/search?q=...`, where the existing contracts search UI continues to use the contracts API via Next.js rewrites configured with `NEXT_PUBLIC_API_URL` or `API_BASE_URL`.
+
+More details are in `docs/strapi-homepage.md`, `docs/strapi-troubleshooting.md`, and `docs/frontend-pages.md`.

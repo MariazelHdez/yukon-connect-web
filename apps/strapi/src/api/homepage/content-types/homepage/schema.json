@@ -1,0 +1,15 @@
+{
+  "kind": "singleType",
+  "collectionName": "homepages",
+  "info": { "singularName": "homepage", "pluralName": "homepages", "displayName": "Homepage", "description": "Editable homepage content for Yukon Connect." },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "title": { "type": "string", "required": true, "default": "Yukon Connect" },
+    "slug": { "type": "uid", "targetField": "title", "default": "home" },
+    "hero": { "type": "component", "component": "homepage.hero" },
+    "insightsSection": { "type": "component", "component": "homepage.insights-section" },
+    "footer": { "type": "component", "component": "site.footer" },
+    "seo": { "type": "component", "component": "shared.seo" }
+  }
+}
